@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register - AI Health Assistant</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body class="auth-container">
+    <div class="glass-card auth-card animate-fade">
+        <div class="auth-header">
+            <h1>Join HealthAI</h1>
+            <p>Start your journey to better health today.</p>
+        </div>
+        
+        <form action="/register" method="POST">
+            <div class="form-group">
+                <label for="name">Full Name</label>
+                <input type="text" id="name" name="name" class="form-input" placeholder="John Doe" required>
+            </div>
+            <div class="form-group">
+                <label for="mail">Email Address</label>
+                <input type="email" id="mail" name="mail" class="form-input" placeholder="name@example.com" required>
+            </div>
+            <div class="form-group">
+                <label for="phone">Phone Number</label>
+                <input type="text" id="phone" name="phone" class="form-input" placeholder="1234567890" required>
+            </div>
+            <div class="form-group" style="display: flex; gap: 1rem;">
+                <div style="flex: 1;">
+                    <label for="age">Age</label>
+                    <input type="number" id="age" name="age" class="form-input" placeholder="25" required>
+                </div>
+                <div style="flex: 1;">
+                    <label for="gender">Gender</label>
+                    <select id="gender" name="gender" class="form-input" required>
+                        <option value="Male">Male</option>
+                        <option value="Female">Female</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="pwd">Password</label>
+                <input type="password" id="pwd" name="pwd" class="form-input" placeholder="••••••••" required>
+            </div>
+            <button type="submit" class="btn btn-primary">Create Account</button>
+        </form>
+
+        <div style="margin-top: 1.5rem; text-align: center; font-size: 0.875rem;">
+            <p>Already have an account? <a href="/login" style="color: var(--primary); font-weight: 600; text-decoration: none;">Login here</a></p>
+        </div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Doctor Registration - AI Health Assistant</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body class="auth-container">
+    <div class="glass-card auth-card animate-fade">
+        <div class="auth-header">
+            <h1>Doctor Portal</h1>
+            <p>Join our network of healthcare professionals.</p>
+        </div>
+        
+        <form action="/doctor_register" method="POST">
+            <div class="form-group">
+                <label for="name">Full Name</label>
+                <input type="text" id="name" name="name" class="form-input" placeholder="Dr. John Doe" required>
+            </div>
+            <div class="form-group">
+                <label for="mail">Email Address</label>
+                <input type="email" id="mail" name="mail" class="form-input" placeholder="doctor@example.com" required>
+            </div>
+            <div class="form-group" style="display: flex; gap: 1rem;">
+                <div style="flex: 1;">
+                    <label for="dept">Specialization</label>
+                    <select id="dept" name="dept" class="form-input" required>
+                        {% for spec in specializations %}
+                        <option value="{{ spec }}">{{ spec }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div style="flex: 1;">
+                    <label for="experience">Experience (Years)</label>
+                    <input type="number" id="experience" name="experience" class="form-input" placeholder="5" required>
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="hospital_name">Hospital Name</label>
+                <select id="hospital_name" name="hospital_name" class="form-input" required>
+                    {% for hosp in hospitals %}
+                    <option value="{{ hosp }}">{{ hosp }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="contact">Contact Number</label>
+                <input type="text" id="contact" name="contact" class="form-input" placeholder="1234567890" required>
+            </div>
+            <div class="form-group">
+                <label for="pwd">Password</label>
+                <input type="password" id="pwd" name="pwd" class="form-input" placeholder="••••••••" required>
+            </div>
+            <button type="submit" class="btn btn-primary" style="background: linear-gradient(135deg, #10b981, #059669);">Register as Doctor</button>
+        </form>
+
+        <div style="margin-top: 1.5rem; text-align: center; font-size: 0.875rem;">
+            <p>Already a member? <a href="/doctor" style="color: #10b981; font-weight: 600; text-decoration: none;">Login here</a></p>
+        </div>
+        
+        {% if msg %}
+        <p style="color: #ef4444; font-size: 0.875rem; text-align: center; margin-top: 1rem;">{{ msg }}</p>
+        {% endif %}
+    </div>
+</body>
+</html>

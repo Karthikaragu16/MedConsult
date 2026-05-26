@@ -1,0 +1,10 @@
+flask
+flask-mysqldb
+mysqlclient
+fpdf2
+werkzeug
+scikit-learn
+nltk
+SpeechRecognition
+joblib
+pandas

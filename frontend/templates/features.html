@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Health - MedConsult</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        .tab-nav { display:flex; gap:0.25rem; background:var(--border-light); border-radius:var(--radius); padding:0.3rem; margin-bottom:2rem; border:1px solid var(--border); }
+        .tab-btn { flex:1; padding:0.65rem; border:none; background:transparent; border-radius:var(--radius-sm); cursor:pointer; font-weight:600; font-size:0.8rem; color:var(--text-muted); transition:var(--transition); display:flex; align-items:center; justify-content:center; gap:0.4rem; font-family:'Inter',sans-serif; }
+        .tab-btn.active { background:var(--btn-color); color:white; box-shadow:0 2px 8px rgba(51,153,255,0.28); }
+        .tab-btn:hover:not(.active) { background:var(--primary-light); color:var(--primary); }
+        .tab-content { display:none; }
+        .tab-content.active { display:block; animation:fadeIn 0.3s ease; }
+
+        .remedy-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(260px,1fr)); gap:1.25rem; }
+        .remedy-card { background:var(--surface); border:1.5px solid var(--border); border-radius:var(--radius); padding:1.5rem; transition:var(--transition); box-shadow:var(--shadow-xs); }
+        .remedy-card:hover { transform:translateY(-3px); box-shadow:var(--shadow); border-color:rgba(77,166,255,0.35); }
+        .remedy-icon { font-size:2rem; margin-bottom:0.75rem; }
+        .remedy-label { font-size:0.72rem; font-weight:700; margin-bottom:0.25rem; text-transform:uppercase; letter-spacing:0.04em; }
+        .remedy-label.dos   { color:var(--success); }
+        .remedy-label.donts { color:var(--danger); }
+        .remedy-label.home  { color:var(--warning); }
+        .remedy-text { font-size:0.8rem; color:var(--text-muted); line-height:1.6; }
+        .search-bar { background:var(--surface); border:1.5px solid var(--border); border-radius:var(--radius-sm); padding:0.75rem 1rem; color:var(--text); width:100%; margin-bottom:1.5rem; font-size:0.9rem; outline:none; font-family:'Inter',sans-serif; transition:var(--transition); }
+        .search-bar:focus { border-color:var(--primary); box-shadow:0 0 0 3px rgba(77,166,255,0.12); }
+        .status-accepted { background:var(--success-light); color:#15803d; }
+        .status-pending  { background:var(--warning-light);  color:#92400e; }
+
+        /* ── Star Rating ── */
+        .star-rating {
+            display: inline-flex;
+            flex-direction: row-reverse;  /* rightmost star = 1 star */
+            gap: 2px;
+        }
+        .star-rating input[type="radio"] {
+            display: none;
+        }
+        .star-rating label {
+            font-size: 1.75rem;
+            color: #d1d5db;
+            cursor: pointer;
+            transition: color 0.15s;
+            line-height: 1;
+        }
+        /* Highlight hovered star and all stars to its right */
+        .star-rating label:hover,
+        .star-rating label:hover ~ label,
+        .star-rating input[type="radio"]:checked ~ label {
+            color: #f59e0b;
+        }
+    </style>
+</head>
+<body>
+    <nav class="dashboard-nav glass-card">
+        <div class="nav-brand">
+            <i data-lucide="heart-pulse"></i>
+            MedConsult
+        </div>
+        <div style="display:flex; gap:1.5rem; align-items:center;">
+            <a href="/dashboard" class="btn" style="background:var(--secondary); color:white; padding:0.5rem 1rem; width:auto; font-size:0.875rem; text-decoration:none;">
+                <i data-lucide="arrow-left" style="width:14px;"></i> Back to Main
+            </a>
+            <a href="/logout" class="btn" style="background:var(--danger); color:white; padding:0.5rem 1rem; width:auto; font-size:0.875rem; text-decoration:none;">Logout</a>
+        </div>
+    </nav>
+
+    <main style="max-width:1100px; margin:0 auto; padding:2rem 1rem;">
+
+        <!-- Tab Navigation -->
+        <div class="tab-nav">
+            <button class="tab-btn active" onclick="switchTab('remedies')" id="tab-remedies">
+                🌿 Home Remedies
+            </button>
+            <button class="tab-btn" onclick="switchTab('profile')" id="tab-profile">
+                👤 Health Profile
+            </button>
+            <button class="tab-btn" onclick="switchTab('appointments')" id="tab-appointments">
+                📅 Appointments
+            </button>
+            <button class="tab-btn" onclick="switchTab('queries')" id="tab-queries">
+                💬 Ask a Doctor
+            </button>
+        </div>
+
+        <!-- Tab 1: Home Remedies -->
+        <div class="tab-content active" id="content-remedies">
+            <h2 class="section-title"><i data-lucide="leaf"></i> Home Remedies Library</h2>
+            <input type="text" class="search-bar" placeholder="🔍 Search by condition (fever, cough, headache...)" oninput="filterRemedies(this.value)">
+            <div class="remedy-grid" id="remedy-grid">
+
+                <div class="remedy-card" data-condition="fever flu viral">
+                    <div class="remedy-icon">🌡️</div>
+                    <div style="font-weight:700; margin-bottom:0.25rem;">Fever / Viral Flu</div>
+                    <div style="font-size:0.75rem; color:var(--warning); margin-bottom:1rem;">Severity: Medium 🟡</div>
+                    <div class="remedy-label dos">✅ Do's</div>
+                    <div class="remedy-text">Drink warm fluids • Rest well • Monitor temperature</div>
+                    <div class="remedy-label donts" style="margin-top:0.75rem;">❌ Don'ts</div>
+                    <div class="remedy-text">Avoid cold drinks • No heavy exercise</div>
+                    <div class="remedy-label home" style="margin-top:0.75rem;">🏠 Home Remedy</div>
+                    <div class="remedy-text">Ginger + Tulsi + Honey tea — 3 times a day</div>
+                </div>
+
+                <div class="remedy-card" data-condition="cough cold bronchitis">
+                    <div class="remedy-icon">😷</div>
+                    <div style="font-weight:700; margin-bottom:0.25rem;">Cough / Common Cold</div>
+                    <div style="font-size:0.75rem; color:var(--success); margin-bottom:1rem;">Severity: Low 🟢</div>
+                    <div class="remedy-label dos">✅ Do's</div>
+                    <div class="remedy-text">Steam inhalation • Warm salt water gargle • Stay warm</div>
+                    <div class="remedy-label donts" style="margin-top:0.75rem;">❌ Don'ts</div>
+                    <div class="remedy-text">Avoid cold air • No dairy products</div>
+                    <div class="remedy-label home" style="margin-top:0.75rem;">🏠 Home Remedy</div>
+                    <div class="remedy-text">Honey + Ginger juice — 1 tsp twice daily</div>
+                </div>
+
+                <div class="remedy-card" data-condition="headache migraine tension">
+                    <div class="remedy-icon">🧠</div>
+                    <div style="font-weight:700; margin-bottom:0.25rem;">Headache / Migraine</div>
+                    <div style="font-size:0.75rem; color:var(--success); margin-bottom:1rem;">Severity: Low 🟢</div>
+                    <div class="remedy-label dos">✅ Do's</div>
+                    <div class="remedy-text">Rest in dark room • Stay hydrated • Cold compress</div>
+                    <div class="remedy-label donts" style="margin-top:0.75rem;">❌ Don'ts</div>
+                    <div class="remedy-text">Avoid bright screens • Don't skip sleep</div>
+                    <div class="remedy-label home" style="margin-top:0.75rem;">🏠 Home Remedy</div>
+                    <div class="remedy-text">Peppermint oil on temples and forehead</div>
+                </div>
+
+                <div class="remedy-card" data-condition="stomach pain gastritis indigestion">
+                    <div class="remedy-icon">🤢</div>
+                    <div style="font-weight:700; margin-bottom:0.25rem;">Stomach Pain</div>
+                    <div style="font-size:0.75rem; color:var(--success); margin-bottom:1rem;">Severity: Low 🟢</div>
+                    <div class="remedy-label dos">✅ Do's</div>
+                    <div class="remedy-text">Eat light meals • Drink warm water • Small portions</div>
+                    <div class="remedy-label donts" style="margin-top:0.75rem;">❌ Don'ts</div>
+                    <div class="remedy-text">Avoid spicy food • No oily snacks</div>
+                    <div class="remedy-label home" style="margin-top:0.75rem;">🏠 Home Remedy</div>
+                    <div class="remedy-text">Jeera (cumin) water — boil 1 tsp and drink warm</div>
+                </div>
+
+                <div class="remedy-card" data-condition="skin rash allergy dermatitis">
+                    <div class="remedy-icon">🌸</div>
+                    <div style="font-weight:700; margin-bottom:0.25rem;">Skin Rash / Allergy</div>
+                    <div style="font-size:0.75rem; color:var(--success); margin-bottom:1rem;">Severity: Low 🟢</div>
+                    <div class="remedy-label dos">✅ Do's</div>
+                    <div class="remedy-text">Use mild soap • Apply aloe vera • Keep skin dry</div>
+                    <div class="remedy-label donts" style="margin-top:0.75rem;">❌ Don'ts</div>
+                    <div class="remedy-text">Don't scratch • Avoid perfumed products</div>
+                    <div class="remedy-label home" style="margin-top:0.75rem;">🏠 Home Remedy</div>
+                    <div class="remedy-text">Neem leaves paste on affected area for 20 mins</div>
+                </div>
+
+                <div class="remedy-card" data-condition="chest pain cardiac emergency" style="border-color:var(--danger);">
+                    <div class="remedy-icon">🚨</div>
+                    <div style="font-weight:700; margin-bottom:0.25rem;">Chest Pain</div>
+                    <div style="font-size:0.75rem; color:var(--danger); margin-bottom:1rem;">Severity: HIGH 🔴 — EMERGENCY</div>
+                    <div class="remedy-label dos">✅ Do's</div>
+                    <div class="remedy-text">Sit upright • Call emergency services IMMEDIATELY</div>
+                    <div class="remedy-label donts" style="margin-top:0.75rem;">❌ Don'ts</div>
+                    <div class="remedy-text">Do NOT ignore • Do NOT exercise</div>
+                    <div class="remedy-label" style="margin-top:0.75rem; color:var(--danger);">⚠️ Warning</div>
+                    <div class="remedy-text" style="color:var(--danger);">Call 108 or visit nearest ER immediately.</div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- Tab 2: Health Profile -->
+        <div class="tab-content" id="content-profile">
+            <h2 class="section-title"><i data-lucide="user"></i> My Health Profile</h2>
+            <div class="glass-card" style="padding:2rem; max-width:600px;">
+                <form action="/update" method="POST">
+                    <div class="form-group">
+                        <label>Full Name</label>
+                        <input type="text" name="name" class="form-input" value="{{ patient.name }}">
+                    </div>
+                    <div class="form-group" style="display:grid; grid-template-columns:1fr 1fr; gap:0.75rem;">
+                        <div>
+                            <label>Age</label>
+                            <input type="number" name="age" class="form-input" value="{{ patient.age or '' }}">
+                        </div>
+                        <div>
+                            <label>Gender</label>
+                            <select name="gender" class="form-input">
+                                {% if patient.gender == 'Male' %}
+                                <option value="Male" selected>Male</option>
+                                {% else %}
+                                <option value="Male">Male</option>
+                                {% endif %}
+                                {% if patient.gender == 'Female' %}
+                                <option value="Female" selected>Female</option>
+                                {% else %}
+                                <option value="Female">Female</option>
+                                {% endif %}
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Location</label>
+                        <input type="text" name="location" class="form-input" value="{{ patient.location or '' }}">
+                    </div>
+                    <div class="form-group">
+                        <label>BMI Index</label>
+                        <input type="text" name="bmi" class="form-input" value="{{ patient.BMI or '' }}">
+                    </div>
+                    <button type="submit" class="btn btn-primary">Save Profile</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Tab 3: Appointments -->
+        <div class="tab-content" id="content-appointments">
+            <h2 class="section-title"><i data-lucide="calendar"></i> My Appointments</h2>
+
+            {% if appointments|length > 0 %}
+            <div style="display:grid; gap:1.25rem;">
+                {% for a in appointments %}
+                <div style="background:#fff; border:1.5px solid #e2e8f0; border-radius:1rem; overflow:hidden; box-shadow:0 2px 8px rgba(0,0,0,0.05);">
+
+                    <!-- Card header -->
+                    <div style="padding:1.25rem 1.5rem; display:flex; justify-content:space-between; align-items:flex-start; border-bottom:1px solid #f1f5f9;">
+                        <div>
+                            <div style="font-weight:700; font-size:1rem; color:#1e293b;">Dr. {{ a.doctor_name }}</div>
+                            <div style="font-size:0.82rem; color:#64748b;">{{ a.dept }}</div>
+                            {% if a.hospital_name %}
+                            <div style="font-size:0.78rem; color:#94a3b8; margin-top:0.2rem;">🏥 {{ a.hospital_name }}</div>
+                            {% endif %}
+                        </div>
+                        <span style="padding:0.25rem 0.75rem; border-radius:2rem; font-size:0.72rem; font-weight:700;
+                            background:{% if a.status=='Accepted' %}#dcfce7{% elif a.status=='Declined' %}#fee2e2{% else %}#fef9c3{% endif %};
+                            color:{% if a.status=='Accepted' %}#166534{% elif a.status=='Declined' %}#991b1b{% else %}#854d0e{% endif %};">
+                            {{ a.status or 'Pending' }}
+                        </span>
+                    </div>
+
+                    <!-- Date / Time -->
+                    <div style="padding:1rem 1.5rem; display:flex; gap:1.5rem; flex-wrap:wrap;">
+                        <div style="display:flex; align-items:center; gap:0.4rem; font-size:0.85rem; color:#475569;">
+                            <i data-lucide="calendar" style="width:14px;"></i> {{ a.appointment_date }}
+                        </div>
+                        <div style="display:flex; align-items:center; gap:0.4rem; font-size:0.85rem; color:#475569;">
+                            <i data-lucide="clock" style="width:14px;"></i> {{ a.appointment_time }}
+                        </div>
+                        {% if a.doctor_rating %}
+                        <div style="display:flex; align-items:center; gap:0.4rem; font-size:0.85rem; color:#d97706;">
+                            ⭐ Doctor Rating: {{ a.doctor_rating }} / 5
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Doctor's uploaded prescription / report -->
+                    {% if a.rx_file %}
+                    <div style="padding:0 1.5rem 0.75rem;">
+                        <div style="background:#f0fdf4; border:1px solid #bbf7d0; border-radius:0.6rem; padding:0.6rem 0.9rem; display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap;">
+                            <i data-lucide="file-check" style="width:16px; color:#16a34a;"></i>
+                            <span style="font-size:0.82rem; color:#15803d; font-weight:600;">Doctor uploaded a file for you</span>
+                            {% if a.rx_desc %}
+                            <span style="font-size:0.78rem; color:#64748b;">— {{ a.rx_desc }}</span>
+                            {% endif %}
+                            <a href="/view_report/{{ a.rx_file }}" target="_blank"
+                               style="margin-left:auto; background:#16a34a; color:white; padding:0.3rem 0.75rem; border-radius:0.4rem; font-size:0.78rem; font-weight:600; text-decoration:none;">
+                                📥 Download
+                            </a>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- ⭐ Star Rating Section -->
+                    {% if a.status == 'Accepted' %}
+                    <div style="padding:0.75rem 1.5rem 1.25rem;">
+                        {% if a.patient_rating %}
+                        <!-- Already rated -->
+                        <div style="display:flex; align-items:center; gap:0.5rem; font-size:0.85rem; color:#d97706; font-weight:600;">
+                            ⭐ You rated Dr. {{ a.doctor_name }}: {{ a.patient_rating }} / 5 — Thank you!
+                        </div>
+                        {% else %}
+                        <!-- Rating form -->
+                        <p style="font-size:0.8rem; font-weight:700; color:#374151; margin:0 0 0.5rem; text-transform:uppercase; letter-spacing:0.04em;">
+                            Rate your experience with Dr. {{ a.doctor_name }}
+                        </p>
+                        <form action="/rate_doctor" method="POST" style="display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap;">
+                            <input type="hidden" name="appointment_id" value="{{ a.id }}">
+                            <input type="hidden" name="doctor_id" value="{{ a.doctor_id }}">
+                            <!-- Star radio buttons -->
+                            <div class="star-rating" id="stars-{{ a.id }}">
+                                {% for star in [5,4,3,2,1] %}
+                                <input type="radio" name="rating" id="star{{ star }}-{{ a.id }}" value="{{ star }}" required>
+                                <label for="star{{ star }}-{{ a.id }}" title="{{ star }} stars">★</label>
+                                {% endfor %}
+                            </div>
+                            <button type="submit" style="background:#f59e0b; color:white; border:none; padding:0.45rem 1rem; border-radius:0.5rem; font-weight:700; font-size:0.85rem; cursor:pointer; font-family:'Inter',sans-serif;">
+                                Submit Rating
+                            </button>
+                        </form>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+
+            {% elif status|length > 0 %}
+            <!-- Legacy consult appointments -->
+            <div style="display:grid; gap:1rem;">
+                {% for s in status %}
+                <div class="glass-card" style="padding:1.5rem; display:flex; justify-content:space-between; align-items:center;">
+                    <div>
+                        <div style="font-weight:700; font-size:1rem;">Dr. {{ s.name }}</div>
+                        <div style="font-size:0.875rem; color:var(--text-muted);">{{ s.dept }}</div>
+                    </div>
+                    <div style="text-align:right;">
+                        <span style="font-size:0.75rem; padding:0.25rem 0.75rem; border-radius:1rem; font-weight:600;" class="{% if s.status == 'Accepted' %}status-accepted{% else %}status-pending{% endif %}">{{ s.status }}</span>
+                        <div style="font-size:0.75rem; margin-top:0.25rem; color:var(--text-muted);">📅 {{ s.timing or 'Pending Confirmation' }}</div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+
+            {% else %}
+            <div class="glass-card" style="padding:3rem; text-align:center; color:var(--text-muted);">
+                <div style="font-size:3rem; margin-bottom:1rem;">📅</div>
+                <p style="font-weight:600;">No appointments yet.</p>
+                <p style="font-size:0.875rem; margin-top:0.5rem;">Book a doctor from the main page to get started.</p>
+                <a href="/dashboard" class="btn btn-primary" style="width:auto; margin-top:1rem; text-decoration:none; display:inline-block;">Go to Main Page</a>
+            </div>
+            {% endif %}
+        </div>
+
+
+        <!-- Tab 4: Ask a Doctor (Community Queries) -->
+        <div class="tab-content" id="content-queries">
+            <h2 class="section-title"><i data-lucide="help-circle"></i> Ask a Doctor</h2>
+            <div class="glass-card" style="padding:1.5rem; margin-bottom:1.5rem;">
+                <h4 style="margin-bottom:1rem;">Post Your Question</h4>
+                <form action="/askquery" method="POST" style="display:flex; gap:0.75rem;">
+                    <input type="text" name="usrquestion" class="form-input" placeholder="Type your health question here..." style="flex:1; margin-bottom:0;">
+                    <button type="submit" class="btn btn-primary" style="width:auto;">Ask</button>
+                </form>
+            </div>
+            <div style="display:grid; gap:1rem;">
+                {% for q in queries %}
+                <div class="glass-card" style="padding:1.25rem;">
+                    <p style="font-weight:600; margin-bottom:0.5rem;">Q: {{ q.question }}</p>
+                    {% if q.status == 'answered' %}
+                    <div style="font-size:0.875rem; color:var(--success); display:flex; gap:0.5rem; align-items:flex-start;">
+                        <i data-lucide="check-circle" style="width:16px; margin-top:2px; flex-shrink:0;"></i>
+                        <span>A: {{ q.answer }}</span>
+                    </div>
+                    {% else %}
+                    <span style="font-size:0.75rem; color:var(--warning);">⏳ Waiting for doctor's response...</span>
+                    {% endif %}
+                </div>
+                {% endfor %}
+                {% if not queries %}
+                <div class="glass-card" style="padding:2rem; text-align:center; color:var(--text-muted);">
+                    <p>No questions yet. Ask your first health question above!</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+    </main>
+
+    <footer style="text-align:center; padding:2rem; color:var(--text-muted); font-size:0.75rem; border-top:1px solid var(--border); margin-top:3rem;">
+        <p>⚠️ <strong>Disclaimer:</strong> This Virtual Health Assistant provides preliminary health insights and is not a substitute for professional medical advice.</p>
+    </footer>
+
+    <script>
+        lucide.createIcons();
+        function switchTab(tab) {
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById('content-' + tab).classList.add('active');
+            document.getElementById('tab-' + tab).classList.add('active');
+        }
+        function filterRemedies(query) {
+            document.querySelectorAll('.remedy-card').forEach(card => {
+                const cond = card.getAttribute('data-condition');
+                card.style.display = (cond.includes(query.toLowerCase()) || query === '') ? 'block' : 'none';
+            });
+        }
+    </script>
+</body>
+</html>

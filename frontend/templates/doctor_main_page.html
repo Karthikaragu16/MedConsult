@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Doctor Dashboard - MedConsult</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        /* ── Appointment Card ── */
+        .appt-card { background:#fff; border:1.5px solid #e2e8f0; border-radius:1rem; margin-bottom:1.5rem; overflow:hidden; box-shadow:0 2px 8px rgba(0,0,0,0.06); }
+        .appt-header { padding:1.25rem 1.5rem; display:flex; justify-content:space-between; align-items:flex-start; border-bottom:1px solid #f1f5f9; }
+        .appt-body { padding:1.25rem 1.5rem; }
+        .appt-footer { padding:1rem 1.5rem; background:#f8fafc; border-top:1px solid #f1f5f9; display:flex; gap:0.75rem; flex-wrap:wrap; align-items:center; }
+
+        .badge { padding:0.25rem 0.75rem; border-radius:2rem; font-size:0.72rem; font-weight:700; text-transform:uppercase; letter-spacing:0.03em; }
+        .badge-pending  { background:#fef9c3; color:#854d0e; }
+        .badge-accepted { background:#dcfce7; color:#166534; }
+        .badge-declined { background:#fee2e2; color:#991b1b; }
+
+        /* Info pills */
+        .info-row { display:flex; flex-wrap:wrap; gap:0.75rem; margin:0.75rem 0; }
+        .info-pill { display:flex; align-items:center; gap:0.4rem; background:#f1f5f9; border-radius:2rem; padding:0.3rem 0.75rem; font-size:0.8rem; color:#475569; }
+
+        /* Symptom analysis box */
+        .analysis-box { background:#f0f9ff; border:1px solid #bae6fd; border-radius:0.75rem; padding:1rem 1.25rem; margin-top:0.75rem; }
+        .analysis-box.severity-high   { background:#fff1f2; border-color:#fecdd3; }
+        .analysis-box.severity-medium { background:#fffbeb; border-color:#fde68a; }
+        .analysis-box.severity-low    { background:#f0fdf4; border-color:#bbf7d0; }
+
+        /* Upload zone */
+        .upload-box { background:#fafafa; border:2px dashed #cbd5e1; border-radius:0.75rem; padding:1rem; margin-top:0.75rem; }
+        .upload-box:hover { border-color:#3b82f6; background:#eff6ff; }
+
+        /* Action buttons */
+        .btn-accept  { background:#16a34a; color:white; border:none; padding:0.5rem 1.1rem; border-radius:0.5rem; font-weight:600; font-size:0.85rem; cursor:pointer; font-family:'Inter',sans-serif; transition:background 0.2s; }
+        .btn-accept:hover  { background:#15803d; }
+        .btn-decline { background:#ef4444; color:white; border:none; padding:0.5rem 1.1rem; border-radius:0.5rem; font-weight:600; font-size:0.85rem; cursor:pointer; font-family:'Inter',sans-serif; transition:background 0.2s; }
+        .btn-decline:hover { background:#dc2626; }
+        .btn-upload  { background:#3b82f6; color:white; border:none; padding:0.5rem 1.1rem; border-radius:0.5rem; font-weight:600; font-size:0.85rem; cursor:pointer; font-family:'Inter',sans-serif; transition:background 0.2s; }
+        .btn-upload:hover  { background:#2563eb; }
+
+        /* Toggle detail section */
+        .detail-section { display:none; margin-top:0.75rem; }
+        .detail-section.open { display:block; animation:fadeIn 0.25s ease; }
+        @keyframes fadeIn { from{opacity:0;transform:translateY(4px)} to{opacity:1;transform:none} }
+
+        .toggle-link { font-size:0.82rem; color:#3b82f6; cursor:pointer; text-decoration:underline; background:none; border:none; font-family:'Inter',sans-serif; padding:0; }
+
+        /* Prescription already uploaded */
+        .rx-uploaded { display:flex; align-items:center; gap:0.5rem; font-size:0.82rem; color:#16a34a; background:#f0fdf4; border:1px solid #bbf7d0; border-radius:0.5rem; padding:0.4rem 0.75rem; }
+
+        /* Right sidebar */
+        .query-card { background:#fff; border:1px solid #e2e8f0; border-radius:0.75rem; padding:1rem; margin-bottom:0.75rem; }
+    </style>
+</head>
+<body>
+    <!-- Nav -->
+    <nav class="dashboard-nav glass-card">
+        <div class="nav-brand">
+            <i data-lucide="stethoscope"></i>
+            MedConsult <span style="font-weight:400;font-size:0.875rem;margin-left:0.5rem;opacity:0.7;">| Doctor Dashboard</span>
+        </div>
+        <div style="display:flex;gap:1.5rem;align-items:center;">
+            <div style="text-align:right;">
+                <span style="display:block;font-weight:700;color:white;">Dr. {{ doctor.name }}</span>
+                <span style="display:block;font-size:0.75rem;opacity:0.7;">{{ doctor.dept }} | ⭐ {{ doctor.rating }}</span>
+            </div>
+            <a href="/doctorLogout" class="btn" style="background:var(--danger);color:white;padding:0.5rem 1rem;width:auto;font-size:0.875rem;text-decoration:none;">Logout</a>
+        </div>
+    </nav>
+
+    <main class="main-content" style="grid-template-columns:1fr 340px;">
+        <!-- Left: Appointments -->
+        <div>
+            <h2 class="section-title" style="color:#1e293b;">
+                <i data-lucide="clipboard-list"></i> Consultation Requests
+            </h2>
+
+            {% if appointments|length > 0 %}
+                {% for a in appointments %}
+                {% set rx = prescriptions.get(a.id) %}
+                <div class="appt-card">
+
+                    <!-- Header: patient name + status badge -->
+                    <div class="appt-header">
+                        <div>
+                            <h3 style="font-size:1.05rem;font-weight:700;color:#1e293b;margin:0;">
+                                👤 {{ a.name }}
+                            </h3>
+                            <p style="font-size:0.82rem;color:#64748b;margin:0.25rem 0 0;">{{ a.patient_mail }}</p>
+                            {% if a.age or a.gender %}
+                            <p style="font-size:0.78rem;color:#94a3b8;margin:0.15rem 0 0;">
+                                {% if a.age %}Age: {{ a.age }}{% endif %}
+                                {% if a.gender %} &nbsp;|&nbsp; {{ a.gender }}{% endif %}
+                                {% if a.phone_number %} &nbsp;|&nbsp; 📞 {{ a.phone_number }}{% endif %}
+                            </p>
+                            {% endif %}
+                        </div>
+                        <span class="badge badge-{{ (a.status or 'Pending')|lower }}">{{ a.status or 'Pending' }}</span>
+                    </div>
+
+                    <!-- Body -->
+                    <div class="appt-body">
+                        <!-- Date / Time -->
+                        <div class="info-row">
+                            <div class="info-pill">
+                                <i data-lucide="calendar" style="width:14px;"></i>
+                                {{ a.appointment_date }}
+                            </div>
+                            <div class="info-pill">
+                                <i data-lucide="clock" style="width:14px;"></i>
+                                {{ a.appointment_time }}
+                            </div>
+                        </div>
+
+                        <!-- Symptom analysis (if patient analysed symptoms) -->
+                        {% if a.condition_name %}
+                        <button class="toggle-link" onclick="toggleDetail('detail-{{ a.id }}')">
+                            🧠 View Patient Symptom Analysis ▾
+                        </button>
+                        <div class="detail-section analysis-box severity-{{ (a.severity or 'low')|lower }}" id="detail-{{ a.id }}">
+                            <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:0.75rem;">
+                                <div>
+                                    <p style="font-size:0.7rem;font-weight:700;text-transform:uppercase;color:#64748b;margin:0;">Detected Condition</p>
+                                    <p style="font-weight:700;color:#1e293b;margin:0.2rem 0 0;font-size:0.95rem;">{{ a.condition_name }}</p>
+                                </div>
+                                <div>
+                                    <p style="font-size:0.7rem;font-weight:700;text-transform:uppercase;color:#64748b;margin:0;">Severity</p>
+                                    <p style="font-weight:700;margin:0.2rem 0 0;color:{% if a.severity=='High' %}#dc2626{% elif a.severity=='Medium' %}#d97706{% else %}#16a34a{% endif %};">
+                                        {{ a.severity }}
+                                    </p>
+                                </div>
+                            </div>
+                            {% if a.symptoms %}
+                            <p style="font-size:0.7rem;font-weight:700;text-transform:uppercase;color:#64748b;margin:0 0 0.3rem;">Reported Symptoms</p>
+                            <p style="font-size:0.85rem;color:#334155;margin:0;">{{ a.symptoms }}</p>
+                            {% endif %}
+                        </div>
+                        {% else %}
+                        <p style="font-size:0.8rem;color:#94a3b8;font-style:italic;margin:0.25rem 0 0;">
+                            ℹ️ Patient has not done symptom analysis yet — general consultation.
+                        </p>
+                        {% endif %}
+
+                        <!-- Prescription already uploaded -->
+                        {% if rx %}
+                        <div class="rx-uploaded" style="margin-top:0.75rem;">
+                            <i data-lucide="file-check" style="width:15px;"></i>
+                            File uploaded: <strong>{{ rx.filename.split('_',2)[2] if rx.filename.count('_') >= 2 else rx.filename }}</strong>
+                            <a href="/view_report/{{ rx.filename }}" target="_blank" style="color:#16a34a;margin-left:0.5rem;">View ↗</a>
+                        </div>
+                        {% endif %}
+
+                        <!-- Upload section (for accepted appointments) -->
+                        {% if a.status == 'Accepted' %}
+                        <button class="toggle-link" style="margin-top:0.75rem;" onclick="toggleDetail('upload-{{ a.id }}')">
+                            📎 {{ 'Replace' if rx else 'Upload' }} Report / Prescription ▾
+                        </button>
+                        <div class="detail-section upload-box" id="upload-{{ a.id }}">
+                            <form action="/upload_prescription" method="POST" enctype="multipart/form-data">
+                                <input type="hidden" name="appointment_id" value="{{ a.id }}">
+                                <input type="hidden" name="patient_mail" value="{{ a.patient_mail }}">
+                                <div style="margin-bottom:0.75rem;">
+                                    <label style="display:block;font-size:0.75rem;font-weight:700;color:#374151;margin-bottom:0.4rem;">Select File (PDF, PNG, JPG)</label>
+                                    <input type="file" name="prescription_file" accept=".pdf,.png,.jpg,.jpeg"
+                                           required
+                                           style="font-size:0.85rem;color:#374151;width:100%;">
+                                </div>
+                                <div style="margin-bottom:0.75rem;">
+                                    <label style="display:block;font-size:0.75rem;font-weight:700;color:#374151;margin-bottom:0.4rem;">Notes / Description (optional)</label>
+                                    <input type="text" name="description"
+                                           placeholder="e.g. Prescription for 5 days course..."
+                                           style="width:100%;padding:0.5rem 0.75rem;border:1.5px solid #d1d5db;border-radius:0.5rem;font-size:0.85rem;font-family:'Inter',sans-serif;box-sizing:border-box;">
+                                </div>
+                                <button type="submit" class="btn-upload">📤 Upload File</button>
+                            </form>
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Footer: Action buttons -->
+                    <div class="appt-footer">
+                        {% if a.status != 'Accepted' and a.status != 'Declined' %}
+                        <form action="/accept_appointment/{{ a.id }}" method="POST" style="margin:0;">
+                            <button type="submit" class="btn-accept">✅ Accept Appointment</button>
+                        </form>
+                        <form action="/decline_appointment/{{ a.id }}" method="POST" style="margin:0;">
+                            <button type="submit" class="btn-decline">❌ Decline</button>
+                        </form>
+                        {% elif a.status == 'Accepted' %}
+                        <span style="font-size:0.82rem;color:#16a34a;font-weight:600;">✅ Appointment Accepted</span>
+                        {% else %}
+                        <span style="font-size:0.82rem;color:#ef4444;font-weight:600;">❌ Appointment Declined</span>
+                        {% endif %}
+
+                        {% if a.patient_rating %}
+                        <span style="margin-left:auto;font-size:0.82rem;color:#d97706;font-weight:600;">
+                            Patient rated: ⭐ {{ a.patient_rating }} / 5
+                        </span>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="appt-card" style="padding:3rem;text-align:center;color:#94a3b8;">
+                    <i data-lucide="inbox" style="width:48px;height:48px;margin-bottom:1rem;opacity:0.4;"></i>
+                    <p style="font-weight:600;">No appointments scheduled yet.</p>
+                </div>
+            {% endif %}
+        </div>
+
+        <!-- Right: Community Queries -->
+        <div>
+            <h3 class="section-title" style="color:#1e293b;">
+                <i data-lucide="help-circle"></i> Community Queries
+            </h3>
+            {% for q in queries %}
+            <div class="query-card">
+                <p style="font-size:0.875rem;font-weight:600;color:#1e293b;margin:0 0 0.5rem;">Q: {{ q.question }}</p>
+                {% if q.status == 'answered' %}
+                <div style="font-size:0.82rem;color:#16a34a;display:flex;gap:0.4rem;">
+                    <i data-lucide="check-circle" style="width:14px;flex-shrink:0;margin-top:2px;"></i>
+                    <span>A: {{ q.answer }}</span>
+                </div>
+                {% else %}
+                <form action="/answerquery" method="POST" style="margin-top:0.5rem;">
+                    <input type="hidden" name="query_id" value="{{ q.id }}">
+                    <textarea name="answer" placeholder="Type your answer..." required
+                              style="width:100%;height:70px;resize:none;padding:0.5rem;border:1.5px solid #e2e8f0;border-radius:0.5rem;font-size:0.82rem;font-family:'Inter',sans-serif;box-sizing:border-box;margin-bottom:0.4rem;"></textarea>
+                    <button type="submit" style="background:#3b82f6;color:white;border:none;padding:0.4rem 0.9rem;border-radius:0.4rem;font-size:0.82rem;cursor:pointer;font-weight:600;font-family:'Inter',sans-serif;">
+                        Submit Answer
+                    </button>
+                </form>
+                {% endif %}
+            </div>
+            {% endfor %}
+            {% if not queries %}
+            <div class="query-card" style="text-align:center;color:#94a3b8;padding:2rem;">
+                <p>No community queries yet.</p>
+            </div>
+            {% endif %}
+        </div>
+    </main>
+
+    <script>
+        lucide.createIcons();
+
+        function toggleDetail(id) {
+            const el = document.getElementById(id);
+            if (el) el.classList.toggle('open');
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,13 @@
+Symptoms,Condition,Severity,Specialty,Remedies,Warnings,Emergency
+"fever, headache, chills, sweating",Viral Fever,Medium,General Physician,"Stay hydrated|Take rest|Monitor temperature",If fever exceeds 103°F seek medical help,False
+"chest pain, shortness of breath, left arm pain",Cardiac Issue,High,Cardiologist,"DO NOT DELAY|Sit upright|Call emergency services",Chest pain can be life-threatening,True
+"cough, sore throat, runny nose, sneezing",Common Cold,Low,General Physician,"Warm salt water gargle|Honey and ginger tea",Avoid cold drinks,False
+"headache, nausea, sensitivity to light, throbbing pain",Migraine,Low,Neurologist,"Rest in a dark room|Stay hydrated",Avoid screen time,False
+"shortness of breath, wheezing, tight chest",Asthma,High,Pulmonologist,"Sit upright|Stay calm|Use inhaler if prescribed",Difficulty breathing is an emergency,True
+"stomach pain, nausea, vomiting, diarrhea",Food Poisoning,Low,Gastroenterologist,"Avoid spicy food|Drink plenty of water|Electrolytes",Avoid heavy meals,False
+"skin rash, itching, redness, swelling",Allergic Reaction,Low,Dermatologist,"Use mild soap|Avoid scratching|Apply calamine lotion",Avoid known allergens,False
+"fever, cough, shortness of breath, fatigue",Flu,Medium,General Physician,"Rest|Drink fluids|Take prescribed antivirals",Watch for worsening breathing,False
+"stomach pain, burning sensation, belching",Gastritis,Low,Gastroenterologist,"Antacids|Small frequent meals",Avoid spicy and acidic food,False
+"joint pain, stiffness, swelling",Arthritis,Low,Orthopedist,"Hot/cold compresses|Gentle exercise",Don't overexert joints,False
+"fever, rash, joint pain, red eyes",Infection,Medium,General Physician,"Rest|Paracetamol",Monitor for bleeding,False
+"headache, stiff neck, fever",Meningitis,High,Neurologist,"Immediate ER visit",Extremely dangerous if ignored,True

@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Home Remedies - HealthAI</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        body {
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            min-height: 100vh;
+        }
+
+        .remedies-page {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 2rem 1rem;
+        }
+
+        .remedy-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.5rem;
+            margin-top: 2rem;
+        }
+
+        .remedy-card {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 1.25rem;
+            padding: 1.5rem;
+            backdrop-filter: blur(10px);
+            transition: transform 0.2s;
+        }
+
+        .remedy-card:hover {
+            transform: translateY(-4px);
+        }
+
+        .remedy-icon {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .remedy-title {
+            color: white;
+            font-size: 1.125rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+
+        .remedy-condition {
+            color: #94a3b8;
+            font-size: 0.8rem;
+            margin-bottom: 1rem;
+        }
+
+        .remedy-section {
+            margin-bottom: 0.75rem;
+        }
+
+        .remedy-label {
+            font-size: 0.75rem;
+            font-weight: 700;
+            margin-bottom: 0.25rem;
+        }
+
+        .remedy-label.dos {
+            color: #22c55e;
+        }
+
+        .remedy-label.donts {
+            color: #ef4444;
+        }
+
+        .remedy-label.home {
+            color: #f59e0b;
+        }
+
+        .remedy-text {
+            font-size: 0.8rem;
+            color: #cbd5e1;
+            line-height: 1.6;
+        }
+
+        .page-title {
+            color: white;
+            font-size: 1.75rem;
+            font-weight: 800;
+        }
+
+        .page-subtitle {
+            color: #94a3b8;
+            font-size: 0.9rem;
+            margin-top: 0.25rem;
+        }
+
+        .search-bar {
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 0.75rem;
+            padding: 0.75rem 1rem;
+            color: white;
+            width: 100%;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+            outline: none;
+        }
+
+        .search-bar::placeholder {
+            color: rgba(255, 255, 255, 0.3);
+        }
+
+        .back-btn {
+            color: #94a3b8;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.875rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .back-btn:hover {
+            color: white;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="remedies-page">
+        <a href="/dashboard" class="back-btn">
+            <i data-lucide="arrow-left" style="width:16px;"></i> Back to Dashboard
+        </a>
+
+        <div>
+            <h1 class="page-title">🌿 Home Remedies</h1>
+            <p class="page-subtitle">Safe and effective traditional remedies for common conditions. Works offline.</p>
+        </div>
+
+        <input type="text" class="search-bar" placeholder="🔍 Search by condition (e.g., fever, cough...)"
+            oninput="filterRemedies(this.value)">
+
+        <div class="remedy-grid" id="remedy-grid">
+            <!-- Intelligent Recommendations -->
+            {% if remedies %}
+            {% for r in remedies %}
+            <div class="remedy-card" style="border: 2px solid #818cf8; background: rgba(129, 140, 248, 0.1);">
+                <div
+                    style="background: #818cf8; color: white; position: absolute; top: 0; right: 0; padding: 0.25rem 0.75rem; border-bottom-left-radius: 0.75rem; font-size: 0.7rem; font-weight: 700;">
+                    AI SUGGESTED</div>
+                <div class="remedy-icon">✨</div>
+                <div class="remedy-title">{{ r.symptom.capitalize() }} Care Plan</div>
+                <div class="remedy-condition">Specifically tailored for your symptoms</div>
+
+                <div class="remedy-section">
+                    <div class="remedy-label dos">✅ Do's</div>
+                    <div class="remedy-text">
+                        {% for item in r.data.dos %} • {{ item }}{% endfor %}
+                    </div>
+                </div>
+                <div class="remedy-section">
+                    <div class="remedy-label donts">❌ Don'ts</div>
+                    <div class="remedy-text">
+                        {% for item in r.data.donts %} • {{ item }}{% endfor %}
+                    </div>
+                </div>
+                <div class="remedy-section">
+                    <div class="remedy-label home">🏠 Home Remedy</div>
+                    <div class="remedy-text">
+                        {% for item in r.data.tips %} • {{ item }}{% endfor %}
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+            {% endif %}
+
+            <!-- Static Search Results -->
+            <div class="remedy-card static-remedy" data-condition="fever flu viral">
+                <div class="remedy-icon">🌡️</div>
+                <div class="remedy-title">Fever / Viral Flu</div>
+                <div class="remedy-condition">Severity: Medium 🟡</div>
+                <div class="remedy-section">
+                    <div class="remedy-label dos">✅ Do's</div>
+                    <div class="remedy-text">Drink warm fluids • Rest well • Keep temperature monitored • Take
+                        paracetamol</div>
+                </div>
+                <div class="remedy-section">
+                    <div class="remedy-label donts">❌ Don'ts</div>
+                    <div class="remedy-text">Avoid cold drinks • Don't skip meals • Avoid heavy exercise</div>
+                </div>
+                <div class="remedy-section">
+                    <div class="remedy-label home">🏠 Home Remedy</div>
+                    <div class="remedy-text">Ginger + Tulsi + Honey tea — drink 3 times a day</div>
+                </div>
+            </div>
+
+            <div class="remedy-card static-remedy" data-condition="cough cold bronchitis">
+                <div class="remedy-icon">😷</div>
+                <div class="remedy-title">Cough / Common Cold</div>
+                <div class="remedy-condition">Severity: Low 🟢</div>
+                <div class="remedy-section">
+                    <div class="remedy-label dos">✅ Do's</div>
+                    <div class="remedy-text">Steam inhalation • Warm salt water gargle • Stay warm • Drink herbal tea
+                    </div>
+                </div>
+                <div class="remedy-section">
+                    <div class="remedy-label donts">❌ Don'ts</div>
+                    <div class="remedy-text">Avoid cold air • Don't drink cold water • Avoid dairy products</div>
+                </div>
+                <div class="remedy-section">
+                    <div class="remedy-label home">🏠 Home Remedy</div>
+                    <div class="remedy-text">Honey + Ginger juice — take 1 tsp twice daily</div>
+                </div>
+            </div>
+
+            <div class="remedy-card static-remedy" data-condition="headache migraine tension">
+                <div class="remedy-icon">🧠</div>
+                <div class="remedy-title">Headache / Migraine</div>
+                <div class="remedy-condition">Severity: Low 🟢</div>
+                <div class="remedy-section">
+                    <div class="remedy-label dos">✅ Do's</div>
+                    <div class="remedy-text">Rest in a dark quiet room • Stay hydrated • Cold compress on forehead</div>
+                </div>
+                <div class="remedy-section">
+                    <div class="remedy-label donts">❌ Don'ts</div>
+                    <div class="remedy-text">Avoid bright screens • Don't skip sleep • Avoid loud noise</div>
+                </div>
+                <div class="remedy-section">
+                    <div class="remedy-label home">🏠 Home Remedy</div>
+                    <div class="remedy-text">Peppermint oil — apply on temples and forehead</div>
+                </div>
+            </div>
+
+            <div class="remedy-card static-remedy" data-condition="stomach pain gastritis indigestion">
+                <div class="remedy-icon">🤢</div>
+                <div class="remedy-title">Stomach Pain / Indigestion</div>
+                <div class="remedy-condition">Severity: Low 🟢</div>
+                <div class="remedy-section">
+                    <div class="remedy-label dos">✅ Do's</div>
+                    <div class="remedy-text">Eat light meals • Drink warm water • Take small frequent meals</div>
+                </div>
+                <div class="remedy-section">
+                    <div class="remedy-label donts">❌ Don'ts</div>
+                    <div class="remedy-text">Avoid spicy food • No oily snacks • Avoid skipping meals</div>
+                </div>
+                <div class="remedy-section">
+                    <div class="remedy-label home">🏠 Home Remedy</div>
+                    <div class="remedy-text">Jeera (cumin) water — boil 1 tsp cumin in water and drink warm</div>
+                </div>
+            </div>
+
+            <div class="remedy-card static-remedy" data-condition="skin rash allergy dermatitis">
+                <div class="remedy-icon">🌸</div>
+                <div class="remedy-title">Skin Rash / Allergy</div>
+                <div class="remedy-condition">Severity: Low 🟢</div>
+                <div class="remedy-section">
+                    <div class="remedy-label dos">✅ Do's</div>
+                    <div class="remedy-text">Use mild soap • Apply aloe vera gel • Keep skin clean and dry</div>
+                </div>
+                <div class="remedy-section">
+                    <div class="remedy-label donts">❌ Don'ts</div>
+                    <div class="remedy-text">Don't scratch • Avoid perfumed products • Don't share towels</div>
+                </div>
+                <div class="remedy-section">
+                    <div class="remedy-label home">🏠 Home Remedy</div>
+                    <div class="remedy-text">Neem leaves paste — apply on affected area for 20 minutes</div>
+                </div>
+            </div>
+
+            <div class="remedy-card static-remedy" data-condition="chest pain cardiac emergency">
+                <div class="remedy-icon">🚨</div>
+                <div class="remedy-title">Chest Pain</div>
+                <div class="remedy-condition" style="color: #ef4444;">Severity: HIGH 🔴 — EMERGENCY</div>
+                <div class="remedy-section">
+                    <div class="remedy-label dos">✅ Do's</div>
+                    <div class="remedy-text">Sit upright • Call emergency services IMMEDIATELY • Stay calm and breathe
+                        slowly</div>
+                </div>
+                <div class="remedy-section">
+                    <div class="remedy-label donts">❌ Don'ts</div>
+                    <div class="remedy-text">Do NOT ignore • Do NOT exercise • Do NOT drive yourself to hospital</div>
+                </div>
+                <div class="remedy-section">
+                    <div class="remedy-label home" style="color: #ef4444;">⚠️ WARNING</div>
+                    <div class="remedy-text">This is a medical emergency. Please call 108 or visit the nearest ER
+                        immediately.</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function filterRemedies(query) {
+            const cards = document.querySelectorAll('.remedy-card');
+            cards.forEach(card => {
+                const condition = card.getAttribute('data-condition');
+                const title = card.querySelector('.remedy-title').textContent;
+                const match = condition.includes(query.toLowerCase()) || title.toLowerCase().includes(query.toLowerCase());
+                card.style.display = match || query === '' ? 'block' : 'none';
+            });
+        }
+        lucide.createIcons();
+    </script>
+</body>
+
+</html>

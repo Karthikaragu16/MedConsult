@@ -1,0 +1,17 @@
+<!-- STEP 10: SYMPTOM & VOICE INPUT UI -->
+<!-- Matches Feature 1 (Core Symptom Input) -->
+
+<div class="ai-input-container">
+    <h2>Describe your symptoms</h2>
+    <p>You can type your symptoms naturally or use the mic icon.</p>
+    
+    <div class="input-wrapper">
+        <input type="text" id="symptom-input" placeholder="e.g., I have headache and fever since morning">
+        <button id="mic-btn" onclick="startVoiceInput()">
+            <i data-lucide="mic"></i>
+        </button>
+    </div>
+    
+    <button class="btn-analyze" onclick="submitAnalysis()">Analyze AI</button>
+    <div id="voice-status" style="display:none; color:red;">● Listening...</div>
+</div>

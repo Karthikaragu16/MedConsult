@@ -1,0 +1,35 @@
+<!-- STEP 9: DASHBOARD & UI COMPONENTS -->
+<!-- This snippet shows the implementation of Feature 5 (Personalized Dashboard) -->
+
+<main class="main-content">
+    <div class="dashboard-tabs">
+        <button onclick="switchTab('analysis')">AI Analysis</button>
+        <button onclick="switchTab('history')">Health History</button>
+        <button onclick="switchTab('remedies')">Home Remedies</button>
+    </div>
+
+    <!-- Personalized Panel -->
+    <section class="glass-card">
+        <h3>Welcome back, {{ patient.name }}</h3>
+        <p>Your Health BMI: {{ patient.BMI }}</p>
+        
+        <div class="history-list">
+            {% for h in history %}
+            <div class="history-item">
+                <span>{{ h.analysis_date }}</span>
+                <strong>{{ h.condition_name }}</strong> ({{ h.severity }})
+            </div>
+            {% endfor %}
+        </div>
+    </section>
+</main>
+
+<style>
+/* Feature 12: Modern UI Styling */
+.glass-card {
+    background: rgba(255, 255, 255, 0.8);
+    backdrop-filter: blur(10px);
+    border-radius: 1rem;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+}
+</style>

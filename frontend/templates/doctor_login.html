@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Doctor Login - AI Health Assistant</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        .auth-card { max-width: 440px; }
+        .auth-card h1 { color: #1e293b !important; font-size: 1.75rem; font-weight: 800; }
+        .auth-card p  { color: #475569; font-size: 0.9rem; margin-top: 0.3rem; }
+        .form-label {
+            display: block; font-size: 0.73rem; font-weight: 800;
+            color: #374151; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 0.4rem;
+        }
+        .form-input {
+            width: 100%; padding: 0.75rem 1rem;
+            border: 1.5px solid #cbd5e1; border-radius: 0.6rem;
+            background: #f8fafc; color: #1e293b;
+            font-size: 0.9rem; font-family: 'Inter', sans-serif;
+            outline: none; box-sizing: border-box; transition: border 0.2s;
+        }
+        .form-input:focus { border-color: #2563eb; background: #fff; }
+        .form-input::placeholder { color: #94a3b8; }
+        .btn-doctor {
+            width: 100%; padding: 0.8rem;
+            background: linear-gradient(135deg, #2563eb, #1d4ed8);
+            color: #fff; border: none; border-radius: 0.7rem;
+            font-size: 0.95rem; font-weight: 700; cursor: pointer;
+            font-family: 'Inter', sans-serif;
+            box-shadow: 0 4px 14px rgba(37,99,235,0.35);
+            transition: transform 0.15s, box-shadow 0.15s;
+            margin-top: 0.5rem;
+        }
+        .btn-doctor:hover { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(37,99,235,0.4); }
+        .error-box {
+            background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca;
+            padding: 0.75rem 1rem; border-radius: 0.6rem;
+            margin-bottom: 1.25rem; text-align: center; font-size: 0.87rem; font-weight: 600;
+        }
+        .footer-links { margin-top: 1.5rem; text-align: center; font-size: 0.875rem; }
+        .footer-links p { color: #374151; margin: 0.35rem 0; }
+        .footer-links a { font-weight: 700; text-decoration: none; }
+        .footer-links a.reg  { color: #2563eb; }
+        .footer-links a.back { color: #64748b; }
+        .footer-links a:hover { text-decoration: underline; }
+        .form-group { margin-bottom: 1.1rem; }
+        .portal-badge {
+            display: inline-flex; align-items: center; gap: 0.4rem;
+            background: #eff6ff; color: #1d4ed8;
+            font-size: 0.72rem; font-weight: 700; padding: 0.3rem 0.75rem;
+            border-radius: 2rem; border: 1px solid #bfdbfe;
+            margin-bottom: 1rem;
+        }
+    </style>
+</head>
+<body class="auth-container">
+    <div class="glass-card auth-card animate-fade">
+        <div class="auth-header">
+            <div class="portal-badge">🩺 Doctor Portal</div>
+            <h1>Welcome Back, Doctor</h1>
+            <p>Sign in to access your medical dashboard.</p>
+        </div>
+
+        {% if msg %}
+        <div class="error-box">⚠️ {{ msg }}</div>
+        {% endif %}
+
+        <form action="/doctor" method="POST">
+            <div class="form-group">
+                <label class="form-label" for="mail">Email Address</label>
+                <input type="email" id="mail" name="mail" class="form-input" placeholder="doctor@hospital.com" required>
+            </div>
+            <div class="form-group">
+                <label class="form-label" for="pwd">Password</label>
+                <input type="password" id="pwd" name="pwd" class="form-input" placeholder="••••••••" required>
+            </div>
+            <button type="submit" class="btn-doctor">Sign In as Doctor →</button>
+        </form>
+
+        <div class="footer-links">
+            <p>New Doctor? <a href="/doctor_register" class="reg">Register here</a></p>
+            <p><a href="/" class="back">← Back to Patient Login</a></p>
+        </div>
+    </div>
+</body>
+</html>

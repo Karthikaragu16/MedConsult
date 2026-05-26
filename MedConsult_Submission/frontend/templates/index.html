@@ -1,0 +1,1069 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MedConsult - AI Health Assistant</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <!-- ResponsiveVoice: Built-in Tamil + English TTS, no OS voice install needed -->
+    <script src="https://code.responsivevoice.org/responsivevoice.js?key=FREE"></script>
+    <style>
+        .loading-overlay { position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(245,249,255,0.92); backdrop-filter:blur(5px); display:none; justify-content:center; align-items:center; z-index:10000; flex-direction:column; gap:1rem; }
+        .spinner { width:50px; height:50px; border:4px solid var(--border); border-top-color:var(--primary); border-radius:50%; animation:spin 1s linear infinite; }
+        @keyframes spin   { to { transform:rotate(360deg); } }
+        @keyframes blink  { 0%,100%{opacity:1} 50%{opacity:0} }
+
+        /* Tab Navigation */
+        .tab-nav { display:flex; gap:0.25rem; background:var(--border-light); border-radius:var(--radius); padding:0.3rem; margin-bottom:1.75rem; border:1px solid var(--border); }
+        .tab-btn { flex:1; padding:0.65rem 0.4rem; border:none; background:transparent; border-radius:var(--radius-sm); cursor:pointer; font-weight:600; font-size:0.78rem; color:var(--text-muted); transition:var(--transition); display:flex; align-items:center; justify-content:center; gap:0.35rem; font-family:'Inter',sans-serif; }
+        .tab-btn.active { background:var(--btn-color); color:white; box-shadow:0 2px 8px rgba(51,153,255,0.28); }
+        .tab-btn:hover:not(.active) { background:var(--primary-light); color:var(--primary); }
+        .tab-content { display:none; }
+        .tab-content.active { display:block; animation:fadeIn 0.3s ease; }
+        @keyframes fadeIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+
+        /* Chatbot Tab Styles */
+        .chat-box  { background:var(--background); border:1.5px solid var(--border); border-radius:var(--radius); height:380px; display:flex; flex-direction:column; }
+        .chat-msgs { flex:1; overflow-y:auto; padding:1.25rem; display:flex; flex-direction:column; gap:0.75rem; }
+        .msg { max-width:75%; padding:0.75rem 1rem; border-radius:1.25rem; font-size:0.875rem; line-height:1.5; }
+        .msg.user { background:var(--btn-color); color:white; align-self:flex-end; border-bottom-right-radius:0.25rem; box-shadow:0 2px 6px rgba(51,153,255,0.22); }
+        .msg.bot  { background:var(--surface); color:var(--text); align-self:flex-start; border-bottom-left-radius:0.25rem; border:1px solid var(--border); }
+        .chat-footer { padding:0.75rem; border-top:1.5px solid var(--border); display:flex; gap:0.5rem; background:var(--surface); border-radius:0 0 var(--radius) var(--radius); }
+        .chat-footer input { flex:1; padding:0.6rem 0.875rem; border:1.5px solid var(--border); border-radius:var(--radius-sm); font-size:0.85rem; background:var(--background); color:var(--text); font-family:'Inter',sans-serif; outline:none; transition:var(--transition); }
+        .chat-footer input:focus { border-color:var(--primary); }
+        .quick-tags { display:flex; gap:0.5rem; flex-wrap:wrap; margin-bottom:1rem; }
+        .quick-tag  { background:var(--surface); border:1.5px solid var(--border); border-radius:2rem; padding:0.35rem 0.875rem; font-size:0.75rem; cursor:pointer; transition:var(--transition); color:var(--text-muted); font-family:'Inter',sans-serif; }
+        .quick-tag:hover { background:var(--primary); color:white; border-color:var(--primary); }
+
+        /* Symptom Checker */
+        .symptom-input-area { background:var(--surface); border:1.5px solid var(--border); border-radius:var(--radius-sm); padding:1.25rem 1.5rem; width:100%; font-size:0.95rem; color:var(--text); outline:none; resize:none; height:120px; font-family:'Inter',sans-serif; transition:var(--transition); }
+        .symptom-input-area::placeholder { color:var(--text-light); }
+        .symptom-input-area:focus { border-color:var(--primary); box-shadow:0 0 0 3px rgba(77,166,255,0.12); }
+        .action-row { display:flex; gap:1rem; margin-top:1.25rem; align-items:center; }
+        .analyze-btn { flex:1; padding:0.9rem; background:var(--btn-color); border:none; border-radius:var(--radius-sm); color:white; font-size:0.95rem; font-weight:700; cursor:pointer; transition:var(--transition); font-family:'Inter',sans-serif; }
+        .analyze-btn:hover { background:var(--btn-hover); transform:translateY(-2px); box-shadow:0 6px 20px rgba(51,153,255,0.35); }
+        .mic-btn { width:50px; height:50px; background:var(--primary-light); border:1.5px solid var(--border); border-radius:50%; cursor:pointer; display:flex; align-items:center; justify-content:center; color:var(--primary); transition:var(--transition); flex-shrink:0; }
+        .mic-btn:hover { background:var(--primary); color:white; border-color:var(--primary); }
+        .mic-btn.listening { background:rgba(239,68,68,0.12); border-color:#ef4444; color:#ef4444; animation:pulse-red 1s infinite; }
+        @keyframes pulse-red { 0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,0.3)} 50%{box-shadow:0 0 0 8px rgba(239,68,68,0)} }
+        .voice-status { font-size:0.75rem; color:#ef4444; font-weight:600; display:none; }
+    </style>
+</head>
+<body>
+    <div id="loading-spinner" class="loading-overlay">
+        <div class="spinner"></div>
+        <p style="font-weight:600; color:var(--primary);">HealthAI is analyzing your symptoms...</p>
+    </div>
+
+    <nav class="dashboard-nav glass-card">
+        <div class="nav-brand">
+            <i data-lucide="heart-pulse"></i>
+            MedConsult
+        </div>
+        <div style="display:flex; gap:1.5rem; align-items:center;">
+            <div style="text-align:right;">
+                <span style="display:block; font-weight:700; color:var(--text);">{{ patient.name }}</span>
+                <span style="display:block; font-size:0.75rem; color:var(--text-muted);">Patient ID: #{{ patient.id }}</span>
+            </div>
+            <a href="/features" class="btn" style="background:rgba(255,255,255,0.1); color:white; padding:0.5rem 1rem; width:auto; font-size:0.875rem; text-decoration:none; border:1px solid rgba(255,255,255,0.2);">More Features</a>
+            <a href="/logout" class="btn" style="background:var(--danger); color:white; padding:0.5rem 1rem; width:auto; font-size:0.875rem; text-decoration:none;">Logout</a>
+        </div>
+    </nav>
+
+    <main class="main-content" style="grid-template-columns: 2fr 1fr; display: grid; gap: 2rem;">
+        <div>
+            <!-- Emergency Alert -->
+            {% if analysis and analysis.emergency %}
+            <div class="emergency-banner animate-fade" style="margin-bottom:1.5rem; background: linear-gradient(135deg, #ef4444, #b91c1c); color: white; padding: 1.5rem; border-radius: 1rem; display: flex; align-items: center; gap: 1rem; box-shadow: 0 10px 25px rgba(239, 68, 68, 0.4);">
+                <i data-lucide="alert-octagon" style="width: 40px; height: 40px;"></i>
+                <div>
+                    <h3 style="margin: 0; font-size: 1.25rem;">🚨 CRITICAL: Emergency Detected</h3>
+                    <p style="margin: 0.25rem 0 0; opacity: 0.9;">{{ analysis.remedies[0] if analysis.remedies else 'Please call emergency services immediately.' }}</p>
+                    <button class="btn" style="background: white; color: #ef4444; width: auto; margin-top: 1rem; padding: 0.5rem 1.5rem; font-weight: 700;">CALL EMERGENCY NOW</button>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Tab Navigation -->
+            <div class="tab-nav">
+                <button class="tab-btn active" onclick="switchTab('find-doctor')" id="tab-find-doctor">
+                    🔍 Find a Doctor
+                </button>
+                <button class="tab-btn" onclick="switchTab('ai-checker')" id="tab-ai-checker">
+                    🧠 AI Symptom Checker
+                </button>
+                <button class="tab-btn" onclick="switchTab('remedies')" id="tab-remedies">
+                    🏡 Home Remedies
+                </button>
+                <button class="tab-btn" onclick="switchTab('reports')" id="tab-reports">
+                    📄 Medical Reports
+                </button>
+            </div>
+
+            <!-- Tab 1: Find a Doctor -->
+            <div class="tab-content active" id="content-find-doctor">
+                <h2 class="section-title"><i data-lucide="users"></i> {% if analysis %}Recommended Specialists{% else %}Available Specialists{% endif %}</h2>
+                <div class="doctor-grid">
+                    {% for d in doctor %}
+                    <div class="glass-card doctor-card">
+                        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem;">
+                            <div class="doctor-avatar">{{ d.name[0] }}</div>
+                            <div style="background: rgba(22, 163, 74, 0.2); color: #4ade80; padding: 0.25rem 0.5rem; border-radius: 0.5rem; font-size: 0.7rem; font-weight: 700;">
+                                {{ d.availability }}
+                            </div>
+                        </div>
+                        <h3 class="doctor-name">Dr. {{ d.name }}</h3>
+                        <p class="doctor-dept">{{ d.dept }}</p>
+                        {% if d.hospital_name %}
+                        <div style="display:flex; align-items:center; gap:0.4rem; margin-bottom:0.75rem; font-size:0.78rem; color:#94a3b8;">
+                            <span>🏥</span>
+                            <span>{{ d.hospital_name }}</span>
+                        </div>
+                        {% endif %}
+                        <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1.25rem;">
+                            <div style="display: flex; color: #fbbf24;">
+                                <i data-lucide="star" style="width: 12px; fill: currentColor;"></i>
+                                <i data-lucide="star" style="width: 12px; fill: currentColor;"></i>
+                                <i data-lucide="star" style="width: 12px; fill: currentColor;"></i>
+                                <i data-lucide="star" style="width: 12px; fill: currentColor;"></i>
+                                <i data-lucide="star" style="width: 12px; fill: currentColor;"></i>
+                            </div>
+                            <span style="font-size: 0.75rem; color: var(--text-muted);">{{ d.rating }}</span>
+                        </div>
+                        <button onclick="openBookingModal('{{ d.name }}', '{{ d.id }}', '{{ d.hospital_name or '' }}')" class="btn btn-primary">Book Now</button>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Tab 2: AI Symptom Checker (Conversational) -->
+            <div class="tab-content" id="content-ai-checker">
+                <!-- Chat UI -->
+                <div style="background:#fff; border:1.5px solid #e2e8f0; border-radius:1rem; overflow:hidden; box-shadow:0 4px 20px rgba(0,0,0,0.08);">
+                    <!-- Header -->
+                    <div style="padding:1.1rem 1.5rem; background:linear-gradient(135deg,#3b82f6,#1d4ed8); display:flex; align-items:center; gap:0.75rem;">
+                        <div style="background:rgba(255,255,255,0.2); border-radius:50%; width:40px; height:40px; display:flex; align-items:center; justify-content:center; font-size:1.3rem; flex-shrink:0;">🧠</div>
+                        <div>
+                            <div style="font-weight:700; color:#fff; font-size:0.95rem;">HealthAI Symptom Assistant</div>
+                            <div style="font-size:0.72rem; color:rgba(255,255,255,0.75);">● Online — Ask me about your symptoms</div>
+                        </div>
+                        <!-- Language Toggle -->
+                        <div style="margin-left:auto; display:flex; align-items:center; gap:0.5rem;">
+                            <button id="sc-lang-en" onclick="scSetLang('en')" title="English"
+                                    style="background:rgba(255,255,255,0.9); border:2px solid #fff; border-radius:0.5rem; padding:0.25rem 0.7rem; color:#1d4ed8; font-size:0.78rem; font-weight:700; cursor:pointer; font-family:'Inter',sans-serif; transition:all 0.2s;">
+                                EN
+                            </button>
+                            <button id="sc-lang-ta" onclick="scSetLang('ta')" title="Tamil"
+                                    style="background:rgba(255,255,255,0.18); border:2px solid rgba(255,255,255,0.4); border-radius:0.5rem; padding:0.25rem 0.7rem; color:#fff; font-size:0.78rem; font-weight:700; cursor:pointer; font-family:'Inter',sans-serif; transition:all 0.2s;">
+                                தமிழ்
+                            </button>
+                            <button onclick="scReset()" title="Start over" style="background:rgba(255,255,255,0.18); border:none; border-radius:0.5rem; padding:0.35rem 0.8rem; color:#fff; font-size:0.78rem; cursor:pointer; font-family:'Inter',sans-serif; font-weight:600;">↺ Reset</button>
+                        </div>
+                    </div>
+
+                    <!-- Messages -->
+                    <div id="sc-msgs" style="height:340px; overflow-y:auto; padding:1.25rem; display:flex; flex-direction:column; gap:0.6rem; background:#f8fafc;"></div>
+
+                    <!-- Quick replies -->
+                    <div id="sc-qr" style="padding:0.5rem 1.25rem; display:flex; gap:0.5rem; flex-wrap:wrap; background:#f1f5f9; border-top:1px solid #e2e8f0; min-height:46px;"></div>
+
+                    <!-- Input -->
+                    <div style="padding:0.85rem 1.25rem; border-top:1px solid #e2e8f0; display:flex; gap:0.5rem; background:#fff; align-items:center;">
+                        <input id="sc-input" type="text" placeholder="Describe your symptoms…"
+                               onkeypress="if(event.key==='Enter')scSend();"
+                               style="flex:1; padding:0.6rem 0.9rem; border:1.5px solid #e2e8f0; border-radius:0.6rem; font-size:0.88rem; color:#1e293b; font-family:'Inter',sans-serif; outline:none; background:#f8fafc;">
+                        <!-- Mic Button -->
+                        <button id="sc-mic-btn" onclick="scToggleMic()" title="Voice input"
+                                style="background:#f1f5f9; border:1.5px solid #e2e8f0; border-radius:0.6rem; padding:0.55rem 0.7rem; cursor:pointer; font-size:1rem; line-height:1; transition:all 0.2s; flex-shrink:0;">🎤</button>
+                        <button onclick="scSend()" style="background:#3b82f6; color:#fff; border:none; padding:0.62rem 1.1rem; border-radius:0.6rem; cursor:pointer; font-weight:700; font-size:0.85rem; font-family:'Inter',sans-serif; transition:background 0.2s;" onmouseover="this.style.background='#2563eb'" onmouseout="this.style.background='#3b82f6'">Send ➤</button>
+                    </div>
+                </div>
+
+                <!-- Result section (revealed after analysis) -->
+                <div id="sc-result" style="display:none; margin-top:1.5rem;">
+                    <!-- Condition card -->
+                    <div id="sc-cond-card" style="background:#fff; border-radius:1rem; padding:1.5rem; margin-bottom:1.25rem; border:1.5px solid #e2e8f0; box-shadow:0 2px 8px rgba(0,0,0,0.06);"></div>
+                    <!-- Doctor grid -->
+                    <h3 style="margin-bottom:1rem; display:flex; align-items:center; gap:0.5rem; color:#1e293b; font-size:1rem;">
+                        <i data-lucide="users"></i> Recommended Specialists for You
+                    </h3>
+                    <div id="sc-doc-grid" class="doctor-grid"></div>
+                </div>
+            </div>
+
+            <!-- Tab 5: Home Remedies AI Chat -->
+            <div class="tab-content" id="content-remedies">
+                <h2 class="section-title"><i data-lucide="home"></i> Home Remedies Assistant</h2>
+
+                <!-- AI Chat Box -->
+                <div style="background:#fff; border:1.5px solid #e2e8f0; border-radius:1rem; overflow:hidden; box-shadow:0 4px 20px rgba(0,0,0,0.08); margin-top:1rem;">
+                    <!-- Header -->
+                    <div style="padding:1rem 1.5rem; background:linear-gradient(135deg,#16a34a,#15803d); display:flex; align-items:center; gap:0.75rem;">
+                        <div style="background:rgba(255,255,255,0.2); border-radius:50%; width:38px; height:38px; display:flex; align-items:center; justify-content:center; font-size:1.2rem; flex-shrink:0;">🌿</div>
+                        <div>
+                            <div style="font-weight:700; color:#fff; font-size:0.95rem;">Home Remedies AI</div>
+                            <div style="font-size:0.72rem; color:rgba(255,255,255,0.8);">● Tell me your symptoms — I'll suggest natural remedies</div>
+                        </div>
+                        <button onclick="remReset()" style="margin-left:auto; background:rgba(255,255,255,0.18); border:none; border-radius:0.5rem; padding:0.3rem 0.8rem; color:#fff; font-size:0.78rem; cursor:pointer; font-weight:600;">↺ Reset</button>
+                    </div>
+
+                    <!-- Messages -->
+                    <div id="rem-msgs" style="height:320px; overflow-y:auto; padding:1.25rem; display:flex; flex-direction:column; gap:0.6rem; background:#f8fafc;"></div>
+
+                    <!-- Input -->
+                    <div style="padding:0.85rem 1.25rem; border-top:1px solid #e2e8f0; display:flex; gap:0.5rem; background:#fff; align-items:center;">
+                        <input id="rem-input" type="text" placeholder="Describe your symptoms (e.g. headache, cold, fever)…"
+                               style="flex:1; border:1.5px solid #e2e8f0; border-radius:0.6rem; padding:0.6rem 1rem; font-size:0.88rem; font-family:'Inter',sans-serif; color:#1e293b; outline:none; background:#f8fafc;"
+                               onkeydown="if(event.key==='Enter') remSend()">
+                        <button onclick="remSend()"
+                                style="background:#16a34a; color:#fff; border:none; border-radius:0.6rem; padding:0.6rem 1.2rem; font-size:0.88rem; font-weight:700; cursor:pointer; font-family:'Inter',sans-serif; white-space:nowrap;">
+                            Send 💬
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Static Library (below chatbox) -->
+                <h3 style="margin-top:2rem; margin-bottom:1rem; color:#1e293b; font-size:0.95rem; font-weight:700; display:flex; align-items:center; gap:0.4rem;">
+                    📚 Full Remedies Library
+                </h3>
+                <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:1.25rem;">
+                    {% for r in remedies %}
+                    <div style="background:#fff; border:1.5px solid #e2e8f0; border-left:4px solid #16a34a; border-radius:1rem; padding:1.25rem; box-shadow:0 2px 8px rgba(0,0,0,0.05);">
+                        <h3 style="color:#1e293b; font-size:1rem; font-weight:700; margin-bottom:0.5rem; display:flex; align-items:center; gap:0.5rem;">
+                            <i data-lucide="heart" style="width:15px; color:#ef4444; fill:#ef4444;"></i> {{ r.condition_name }}
+                        </h3>
+                        <p style="color:#374151; font-size:0.83rem; margin-bottom:0.75rem; line-height:1.55;">{{ r.remedy_text }}</p>
+                        <div style="margin-bottom:0.5rem;">
+                            <span style="font-size:0.72rem; font-weight:800; color:#16a34a; text-transform:uppercase;">✅ DOs</span>
+                            <p style="font-size:0.8rem; color:#374151; margin:0.2rem 0 0;">{{ r.dos.replace('|', ', ') }}</p>
+                        </div>
+                        <div>
+                            <span style="font-size:0.72rem; font-weight:800; color:#dc2626; text-transform:uppercase;">❌ DON'Ts</span>
+                            <p style="font-size:0.8rem; color:#374151; margin:0.2rem 0 0;">{{ r.donts.replace('|', ', ') }}</p>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+
+
+            <!-- Tab 4: Medical Reports -->
+            <div class="tab-content" id="content-reports">
+
+                <!-- Section A: Doctor-uploaded Prescriptions / Files -->
+                {% if doctor_reports %}
+                <div style="margin-bottom:2.5rem;">
+                    <h2 class="section-title" style="margin-bottom:1rem;">
+                        <i data-lucide="stethoscope"></i> From Your Doctor
+                    </h2>
+                    <p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:1.25rem;">
+                        Files (prescriptions, lab results, notes) uploaded by your doctor after your visit.
+                    </p>
+                    <div style="display:grid; gap:1rem;">
+                        {% for rx in doctor_reports %}
+                        <div class="glass-card" style="padding:1.25rem; border-left:4px solid #22c55e;">
+                            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem;">
+                                <div style="display:flex; align-items:center; gap:1rem;">
+                                    <div style="background:rgba(34,197,94,0.12); padding:0.75rem; border-radius:0.6rem; color:#22c55e; flex-shrink:0;">
+                                        <i data-lucide="file-check"></i>
+                                    </div>
+                                    <div>
+                                        <p style="font-weight:700; font-size:0.95rem; margin:0;">
+                                            {% if rx.description %}{{ rx.description }}{% else %}Doctor Report{% endif %}
+                                        </p>
+                                        <p style="font-size:0.78rem; color:var(--text-muted); margin:0.25rem 0 0;">
+                                            Dr. {{ rx.doctor_name }} &nbsp;·&nbsp; {{ rx.dept }}
+                                        </p>
+                                        <p style="font-size:0.73rem; color:var(--text-muted); margin:0.2rem 0 0;">
+                                            Appointment: {{ rx.appointment_date.strftime('%d %b, %Y') if rx.appointment_date else '' }}
+                                            {% if rx.appointment_time %} at {{ rx.appointment_time }}{% endif %}
+                                        </p>
+                                    </div>
+                                </div>
+                                <a href="/view_report/{{ rx.filename }}" target="_blank"
+                                   style="background:linear-gradient(135deg,#22c55e,#16a34a); color:white; padding:0.5rem 1.25rem; border-radius:0.6rem; font-size:0.85rem; font-weight:600; text-decoration:none; white-space:nowrap; box-shadow:0 2px 8px rgba(34,197,94,0.3);">
+                                    📥 View / Download
+                                </a>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- Section B: Patient uploads -->
+                <div class="glass-card" style="padding:2rem; margin-bottom:2rem;">
+                    <h3 style="margin-bottom:1.25rem; display:flex; align-items:center; gap:0.5rem;">
+                        <i data-lucide="upload-cloud"></i> Upload My Report
+                    </h3>
+                    <p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:1.25rem;">
+                        Upload your own lab reports, scan results, or any health documents here.
+                    </p>
+                    <form action="/upload_report" method="POST" enctype="multipart/form-data">
+                        <div style="display:grid; gap:0.9rem;">
+                            <div>
+                                <label style="display:block; font-size:0.75rem; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.05em; margin-bottom:0.4rem;">Report Name (optional)</label>
+                                <input type="text" name="report_name" placeholder="e.g. Blood Test June 2026"
+                                       style="width:100%; padding:0.65rem 1rem; border:1.5px solid var(--border); border-radius:0.6rem; background:var(--surface); color:var(--text); font-family:'Inter',sans-serif; font-size:0.9rem; box-sizing:border-box; outline:none;">
+                            </div>
+                            <div style="display:flex; gap:1rem; align-items:center; flex-wrap:wrap;">
+                                <input type="file" name="report_file" accept=".pdf,.png,.jpg,.jpeg,.gif" required
+                                       style="flex:1; padding:0.55rem; border:1.5px solid var(--border); border-radius:0.6rem; background:var(--surface); color:var(--text); font-size:0.85rem; min-width:180px;">
+                                <button type="submit" class="btn btn-primary" style="width:auto; padding:0.65rem 1.5rem; white-space:nowrap;">
+                                    📤 Upload Report
+                                </button>
+                            </div>
+                        </div>
+                        <p style="margin-top:0.75rem; font-size:0.72rem; color:var(--text-muted);">Supported: PDF, PNG, JPG, JPEG, GIF &nbsp;·&nbsp; Max 5 MB</p>
+                    </form>
+                </div>
+
+                <h2 class="section-title"><i data-lucide="files"></i> My Uploaded Reports</h2>
+                <div style="display:grid; gap:1rem;">
+                    {% if reports %}
+                        {% for r in reports %}
+                        <div class="glass-card" style="padding:1.25rem; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem;">
+                            <div style="display:flex; align-items:center; gap:1rem;">
+                                <div style="background:rgba(99,102,241,0.12); padding:0.75rem; border-radius:0.6rem; color:var(--primary); flex-shrink:0;">
+                                    <i data-lucide="file-text"></i>
+                                </div>
+                                <div>
+                                    <p style="font-weight:600; font-size:0.95rem; margin:0;">
+                                        {{ r.filename.split('_', 2)[2] if r.filename.count('_') >= 2 else (r.filename.split('_', 1)[1] if '_' in r.filename else r.filename) }}
+                                    </p>
+                                    <p style="font-size:0.75rem; color:var(--text-muted); margin:0.2rem 0 0;">
+                                        Uploaded: {{ r.upload_date.strftime('%d %b, %Y') if r.upload_date else '—' }}
+                                    </p>
+                                </div>
+                            </div>
+                            <div style="display:flex; gap:0.6rem;">
+                                <a href="/view_report/{{ r.filename }}" target="_blank"
+                                   style="background:var(--btn-color); color:white; padding:0.45rem 1.1rem; border-radius:0.6rem; font-size:0.83rem; font-weight:600; text-decoration:none;">
+                                    View
+                                </a>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="glass-card" style="padding:3rem; text-align:center; color:var(--text-muted);">
+                            <i data-lucide="folder-open" style="width:48px; height:48px; margin-bottom:1rem; opacity:0.4;"></i>
+                            <p style="margin:0; font-weight:600;">No reports uploaded yet.</p>
+                            <p style="font-size:0.8rem; margin-top:0.4rem;">Use the form above to upload your first report.</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Sidebar: Personalized Panels -->
+        <aside>
+            <div class="glass-card" style="padding: 1.5rem; margin-bottom: 2rem;">
+                <h3 style="font-size: 1.1rem; margin-bottom: 1.25rem; display: flex; align-items: center; gap: 0.5rem;">
+                    <i data-lucide="history" style="width: 20px;"></i> Health History
+                </h3>
+                <div style="display: flex; flex-direction: column; gap: 1rem;">
+                    {% if history %}
+                        {% for h in history %}
+                        <div style="border-left: 2px solid #818cf8; padding-left: 1rem;">
+                            <span style="font-size: 0.7rem; color: var(--text-muted);">{{ h.analysis_date.strftime('%d %b, %Y') }}</span>
+                            <p style="font-size: 0.85rem; font-weight: 600; margin: 0.2rem 0;">{{ h.condition_name }}</p>
+                            <span style="font-size: 0.75rem; color: var(--text-muted);">{{ h.symptoms }}</span>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <p style="font-size: 0.85rem; color: var(--text-muted); text-align: center;">No history yet. Start your first analysis!</p>
+                    {% endif %}
+                </div>
+            </div>
+
+        <!-- Booked Appointments Panel -->
+            <div class="glass-card" style="padding:1.5rem; margin-bottom:2rem;">
+                <h3 style="font-size:1.05rem; margin-bottom:1.25rem; display:flex; align-items:center; gap:0.5rem; color:#1e293b;">
+                    <i data-lucide="calendar-check" style="width:20px; color:#3b82f6;"></i> My Appointments
+                </h3>
+                {% if appointments %}
+                <div style="display:flex; flex-direction:column; gap:0.85rem;">
+                    {% for appt in appointments %}
+                    {% set s = appt.status | lower %}
+                    {% set badge_bg = '#dcfce7' if s == 'accepted' else ('#fee2e2' if s == 'rejected' else '#fef9c3') %}
+                    {% set badge_color = '#16a34a' if s == 'accepted' else ('#dc2626' if s == 'rejected' else '#ca8a04') %}
+                    {% set badge_icon = '✅' if s == 'accepted' else ('❌' if s == 'rejected' else '⏳') %}
+                    {% set left_border = '#22c55e' if s == 'accepted' else ('#ef4444' if s == 'rejected' else '#facc15') %}
+                    <div style="border-left:3px solid {{ left_border }}; background:#f8fafc; border-radius:0 0.6rem 0.6rem 0; padding:0.75rem 0.9rem;">
+                        <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:0.5rem; margin-bottom:0.35rem;">
+                            <span style="font-weight:700; font-size:0.85rem; color:#1e293b;">Dr. {{ appt.doctor_name }}</span>
+                            <span style="background:{{ badge_bg }}; color:{{ badge_color }}; font-size:0.65rem; font-weight:700; padding:0.18rem 0.55rem; border-radius:2rem; white-space:nowrap;">{{ badge_icon }} {{ appt.status }}</span>
+                        </div>
+                        <div style="font-size:0.75rem; color:#64748b; margin-bottom:0.2rem;">{{ appt.dept }}</div>
+                        {% if appt.hospital_name %}
+                        <div style="font-size:0.72rem; color:#94a3b8; margin-bottom:0.35rem;">🏥 {{ appt.hospital_name }}</div>
+                        {% endif %}
+                        <div style="display:flex; align-items:center; gap:0.75rem; font-size:0.72rem; color:#475569; font-weight:600;">
+                            <span>📅 {{ appt.appointment_date.strftime('%d %b %Y') if appt.appointment_date else '—' }}</span>
+                            <span>🕐 {{ appt.appointment_time or '—' }}</span>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div style="text-align:center; padding:1.25rem 0; color:var(--text-muted);">
+                    <i data-lucide="calendar-x" style="width:36px; height:36px; opacity:0.35; margin-bottom:0.5rem;"></i>
+                    <p style="font-size:0.8rem; margin:0; font-weight:600;">No appointments yet</p>
+                    <p style="font-size:0.73rem; margin:0.3rem 0 0; opacity:0.7;">Book a doctor to get started</p>
+                </div>
+                {% endif %}
+            </div>
+
+            <div class="glass-card" style="padding:1.5rem; background:linear-gradient(135deg,#eff6ff,#f5f3ff); border:1px solid #c7d2fe;">
+
+                <h3 style="font-size:1.1rem; margin-bottom:1rem; display:flex; align-items:center; gap:0.5rem; color:#1e293b;">
+                    <i data-lucide="sparkles" style="width:20px; color:#f59e0b;"></i> Health Tips
+                </h3>
+                <p style="font-size:0.82rem; line-height:1.6; color:#475569; margin-bottom:0.75rem;">
+                    Based on your profile, we recommend:
+                </p>
+                <ul style="font-size:0.83rem; color:#1e293b; padding-left:1.25rem; margin:0; display:flex; flex-direction:column; gap:0.6rem; line-height:1.55;">
+                    <li style="color:#374151;">💧 Stay hydrated — drink 3L of water daily</li>
+                    <li style="color:#374151;">🚶 Daily 15-min morning walk</li>
+                    <li style="color:#374151;">🍵 Reduce sugar intake in beverages</li>
+                    <li style="color:#374151;">😴 Get 7–8 hours of sleep each night</li>
+                    <li style="color:#374151;">🧘 5 min breathing exercise after waking up</li>
+                </ul>
+                <a href="/features" style="display:inline-block; background:linear-gradient(135deg,#6366f1,#8b5cf6); color:white; border:none; border-radius:0.6rem; padding:0.55rem 1.1rem; margin-top:1.25rem; font-size:0.78rem; font-weight:700; text-decoration:none; font-family:'Inter',sans-serif;">Explore Remedies →</a>
+            </div>
+        </aside>
+    </main>
+
+    <!-- Appointment Booking Modal — Calendly Style -->
+    <div id="booking-modal" class="loading-overlay" style="background:rgba(15,23,42,0.7); backdrop-filter:blur(8px); align-items:center; justify-content:center;">
+        <div id="bm-card" style="background:#fff; border-radius:1.5rem; width:96%; max-width:820px; display:flex; min-height:480px; overflow:hidden; box-shadow:0 30px 80px rgba(0,0,0,0.35); position:relative; animation:bmSlideIn 0.3s ease;">
+            <style>
+                @keyframes bmSlideIn{from{opacity:0;transform:scale(0.94)}to{opacity:1;transform:scale(1)}}
+                .bm-cal-day{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:0.85rem;cursor:pointer;border:none;background:transparent;font-family:'Inter',sans-serif;transition:background 0.15s,color 0.15s;color:#1e293b;}
+                .bm-cal-day:hover:not(:disabled){background:#eff6ff;color:#2563eb;}
+                .bm-cal-day.selected{background:#2563eb;color:#fff;}
+                .bm-cal-day:disabled{color:#cbd5e1;cursor:default;}
+                .bm-slot{padding:0.5rem 1rem;border:1.5px solid #bfdbfe;border-radius:2rem;font-size:0.83rem;font-weight:600;cursor:pointer;background:#fff;color:#1d4ed8;font-family:'Inter',sans-serif;transition:background 0.15s,color 0.15s,border-color 0.15s;}
+                .bm-slot:hover{background:#eff6ff;}
+                .bm-slot.selected{background:#2563eb;color:#fff;border-color:#2563eb;}
+                #bm-panel-right{display:none;}
+                #bm-panel-confirm{display:none;}
+            </style>
+
+            <!-- LEFT: Doctor Info -->
+            <div style="width:240px;flex-shrink:0;padding:2rem 1.75rem;border-right:1px solid #e2e8f0;background:#f8fafc;display:flex;flex-direction:column;gap:0;">
+                <button onclick="closeModal()" style="position:absolute;top:1rem;right:1rem;background:transparent;border:none;color:#94a3b8;font-size:1.3rem;cursor:pointer;line-height:1;z-index:10;" title="Close">✕</button>
+                <div id="bm-avatar" style="width:52px;height:52px;border-radius:50%;background:linear-gradient(135deg,#3b82f6,#1d4ed8);color:#fff;display:flex;align-items:center;justify-content:center;font-size:1.4rem;font-weight:800;margin-bottom:1rem;flex-shrink:0;">D</div>
+                <p style="font-size:0.7rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.07em;margin:0 0 0.25rem;">Book with</p>
+                <h3 id="bm-doc-name" style="font-size:1.15rem;font-weight:800;color:#1e293b;margin:0 0 0.5rem;">Dr. ...</h3>
+                <p id="bm-dept" style="font-size:0.82rem;color:#2563eb;font-weight:600;margin:0 0 0.5rem;"></p>
+                <div id="bm-hospital-tag" style="display:none;font-size:0.75rem;color:#64748b;margin-bottom:1rem;display:flex;align-items:center;gap:0.3rem;">🏥 <span id="bm-hosp-txt"></span></div>
+                <div style="margin-top:auto;padding-top:1.5rem;border-top:1px solid #e2e8f0;">
+                    <div style="display:flex;align-items:center;gap:0.4rem;font-size:0.78rem;color:#64748b;">⏱ <span>1 hour appointment</span></div>
+                    <div style="display:flex;align-items:center;gap:0.4rem;font-size:0.78rem;color:#64748b;margin-top:0.4rem;">📍 <span>In-clinic visit</span></div>
+                    <div style="display:flex;align-items:center;gap:0.4rem;font-size:0.78rem;color:#64748b;margin-top:0.4rem;">⏸ <span>30 min gap between slots</span></div>
+                </div>
+            </div>
+
+            <!-- MIDDLE: Calendar -->
+            <div id="bm-panel-cal" style="flex:1;padding:2rem 1.75rem;overflow-y:auto;">
+                <p style="font-size:0.75rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.07em;margin:0 0 1rem;">Select a Date</p>
+                <!-- Month nav -->
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">
+                    <button onclick="bmPrevMonth()" style="background:#f1f5f9;border:none;border-radius:0.5rem;padding:0.4rem 0.7rem;cursor:pointer;font-size:1rem;color:#475569;">‹</button>
+                    <span id="bm-month-label" style="font-weight:700;font-size:0.95rem;color:#1e293b;"></span>
+                    <button onclick="bmNextMonth()" style="background:#f1f5f9;border:none;border-radius:0.5rem;padding:0.4rem 0.7rem;cursor:pointer;font-size:1rem;color:#475569;">›</button>
+                </div>
+                <!-- Weekday headers -->
+                <div style="display:grid;grid-template-columns:repeat(7,1fr);text-align:center;margin-bottom:0.5rem;">
+                    <span style="font-size:0.68rem;font-weight:700;color:#94a3b8;">SUN</span>
+                    <span style="font-size:0.68rem;font-weight:700;color:#94a3b8;">MON</span>
+                    <span style="font-size:0.68rem;font-weight:700;color:#94a3b8;">TUE</span>
+                    <span style="font-size:0.68rem;font-weight:700;color:#94a3b8;">WED</span>
+                    <span style="font-size:0.68rem;font-weight:700;color:#94a3b8;">THU</span>
+                    <span style="font-size:0.68rem;font-weight:700;color:#94a3b8;">FRI</span>
+                    <span style="font-size:0.68rem;font-weight:700;color:#94a3b8;">SAT</span>
+                </div>
+                <div id="bm-cal-grid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;justify-items:center;"></div>
+            </div>
+
+            <!-- RIGHT: Time Slots (shown after date pick) -->
+            <div id="bm-panel-right" style="width:170px;flex-shrink:0;padding:2rem 1.25rem;border-left:1px solid #e2e8f0;overflow-y:auto;">
+                <p id="bm-selected-date-label" style="font-size:0.7rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.06em;margin:0 0 1rem;"></p>
+                <div id="bm-slots" style="display:flex;flex-direction:column;gap:0.5rem;"></div>
+            </div>
+
+            <!-- CONFIRM panel (replaces calendar+slots after time pick) -->
+            <div id="bm-panel-confirm" style="flex:1;padding:2rem 1.75rem;display:flex;flex-direction:column;gap:1.25rem;">
+                <button onclick="bmBackToCalendar()" style="background:none;border:none;color:#2563eb;font-size:0.82rem;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:0.3rem;padding:0;font-family:'Inter',sans-serif;">← Back</button>
+                <h3 style="margin:0;font-size:1.15rem;font-weight:800;color:#1e293b;">Confirm Your Booking</h3>
+                <!-- Summary box -->
+                <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:0.75rem;padding:1rem 1.25rem;">
+                    <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.3rem;">
+                        <span style="font-size:1rem;">📅</span>
+                        <span id="bm-confirm-date" style="font-weight:700;color:#1d4ed8;font-size:0.95rem;"></span>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:0.5rem;">
+                        <span style="font-size:1rem;">🕐</span>
+                        <span id="bm-confirm-time" style="font-weight:700;color:#1d4ed8;font-size:0.95rem;"></span>
+                    </div>
+                </div>
+                <form action="/book_appointment" method="POST" id="booking-form">
+                    <input type="hidden" name="doctor_id" id="modal-doc-id">
+                    <input type="hidden" name="date"      id="modal-date">
+                    <input type="hidden" name="time"      id="modal-time">
+                    <button type="submit" style="width:100%;padding:0.85rem;background:#2563eb;border:none;border-radius:0.75rem;color:#fff;font-size:1rem;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;box-shadow:0 4px 14px rgba(37,99,235,0.4);transition:background 0.2s;" onmouseover="this.style.background='#1d4ed8'" onmouseout="this.style.background='#2563eb'">
+                        Confirm Appointment
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <footer style="text-align:center; padding:2rem; color:var(--text-muted); font-size:0.75rem; border-top:1px solid var(--border); margin-top:3rem;">
+        <p>⚠️ <strong>Disclaimer:</strong> This Virtual Health Assistant provides preliminary health insights and is not a substitute for professional medical advice.</p>
+        <p style="margin-top:0.5rem;">© 2026 MedConsult AI. All rights reserved.</p>
+    </footer>
+
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/symptoms.js') }}"></script>
+    <script>
+        lucide.createIcons();
+
+        // Initialize tab from URL param
+        const urlParams = new URLSearchParams(window.location.search);
+        let tabParam = urlParams.get('tab');
+        if (tabParam === 'analysis') tabParam = 'ai-checker';
+        if (tabParam) switchTab(tabParam);
+
+        /* ────────────────────────────────────────────
+       SYMPTOM CHAT ENGINE
+        ──────────────────────────────────────────── */
+        let scStep      = -1;
+        let scCollected = {};
+        let scLang      = 'en';   // 'en' or 'ta'
+
+        // ── Translations ──────────────────────────────────────────────────────
+        const SC_T = {
+            en: {
+                init:    "👋 Hi! I'm your AI Health Assistant. Tell me what symptoms you're experiencing and I'll help identify what specialist you need.\n\nYou can type below or pick a common symptom:",
+                q1:      'How long have you been experiencing these symptoms?',
+                q1opts:  ['Just today', '2–3 days', 'About a week', 'More than a week'],
+                q2:      'How severe would you rate your symptoms?',
+                q2opts:  ['Mild — I can manage', 'Moderate — affecting daily life', 'Severe — need urgent help'],
+                q3:      'Any additional symptoms or relevant medical history? (fever, allergies, chronic conditions…)',
+                q3opts:  ['No additional symptoms', 'I also have fever', 'I have allergies', 'I have a chronic condition'],
+                quick:   ['🌡️ Fever','🧠 Headache','😷 Cough','❤️ Chest Pain','🤢 Stomach Pain','🌸 Skin Rash','💨 Breathing Issue','🦴 Joint Pain'],
+                ph0:     'Describe your symptoms…',
+                phOpt:   'Type or pick an option above…',
+                phDone:  'Chat closed — click Reset to start over',
+                result:  (c,s,sp) => `✅ Analysis complete!\n\n🏥 Detected condition: ${c}\n⚡ Severity: ${s}\n👨‍⚕️ Recommended specialist: ${sp}\n\nHere are the matched doctors below. You can book directly!`,
+                micLang: 'en-IN'
+            },
+            ta: {
+                init:    "👋 வணக்கம்! நான் உங்கள் AI ஆரோக்கிய உதவியாளர். நீங்கள் அனுபவிக்கும் அறிகுறிகளைச் சொல்லுங்கள், சரியான மருத்துவரை பரிந்துரைக்கிறேன்.\n\nகீழே தட்டச்சு செய்யுங்கள் அல்லது ஒரு அறிகுறியை தேர்ந்தெடுங்கள்:",
+                q1:      'இந்த அறிகுறிகளை எவ்வளவு காலமாக அனுபவிக்கிறீர்கள்?',
+                q1opts:  ['இன்று மட்டுமே', '2–3 நாட்கள்', 'சுமார் ஒரு வாரம்', 'ஒரு வாரத்திற்கும் மேல்'],
+                q2:      'உங்கள் அறிகுறிகளை எவ்வளவு தீவிரமாக மதிப்பிடுவீர்கள்?',
+                q2opts:  ['லேசானது — சமாளிக்கலாம்', 'மிதமானது — அன்றாட வாழ்வை பாதிக்கிறது', 'கடுமையானது — அவசர உதவி தேவை'],
+                q3:      'கூடுதல் அறிகுறிகள் அல்லது மருத்துவ வரலாறு ஏதேனும் உள்ளதா?',
+                q3opts:  ['கூடுதல் அறிகுறிகள் இல்லை', 'காய்ச்சலும் உள்ளது', 'ஒவ்வாமை உள்ளது', 'நீண்டகால நோய் உள்ளது'],
+                quick:   ['🌡️ காய்ச்சல்','🧠 தலைவலி','😷 இருமல்','❤️ மார்பு வலி','🤢 வயிற்று வலி','🌸 தோல் அரிப்பு','💨 மூச்சுத் திணறல்','🦴 மூட்டு வலி'],
+                ph0:     'உங்கள் அறிகுறிகளை விவரியுங்கள்…',
+                phOpt:   'தட்டச்சு செய்யுங்கள் அல்லது மேலே உள்ள விருப்பத்தை தேர்ந்தெடுங்கள்…',
+                phDone:  'உரையாடல் முடிந்தது — மீண்டும் தொடங்க Reset அழுத்துங்கள்',
+                result:  (c,s,sp) => `✅ பகுப்பாய்வு முடிந்தது!\n\n🏥 கண்டறிந்த நிலை: ${c}\n⚡ தீவிரம்: ${s}\n👨‍⚕️ பரிந்துரைக்கப்பட்ட நிபுணர்: ${sp}\n\nகீழே பொருந்தும் மருத்துவர்கள். நேரடியாக பதிவு செய்யலாம்!`,
+                micLang: 'ta-IN'
+            }
+        };
+
+        function scT() { return SC_T[scLang]; }
+
+        function scSetLang(lang) {
+            scLang = lang;
+            // Update toggle button styles
+            const enBtn = document.getElementById('sc-lang-en');
+            const taBtn = document.getElementById('sc-lang-ta');
+            if (lang === 'en') {
+                enBtn.style.cssText = 'background:rgba(255,255,255,0.9); border:2px solid #fff; border-radius:0.5rem; padding:0.25rem 0.7rem; color:#1d4ed8; font-size:0.78rem; font-weight:700; cursor:pointer; font-family:Inter,sans-serif;';
+                taBtn.style.cssText = 'background:rgba(255,255,255,0.18); border:2px solid rgba(255,255,255,0.4); border-radius:0.5rem; padding:0.25rem 0.7rem; color:#fff; font-size:0.78rem; font-weight:700; cursor:pointer; font-family:Inter,sans-serif;';
+            } else {
+                taBtn.style.cssText = 'background:rgba(255,255,255,0.9); border:2px solid #fff; border-radius:0.5rem; padding:0.25rem 0.7rem; color:#1d4ed8; font-size:0.78rem; font-weight:700; cursor:pointer; font-family:Inter,sans-serif;';
+                enBtn.style.cssText = 'background:rgba(255,255,255,0.18); border:2px solid rgba(255,255,255,0.4); border-radius:0.5rem; padding:0.25rem 0.7rem; color:#fff; font-size:0.78rem; font-weight:700; cursor:pointer; font-family:Inter,sans-serif;';
+            }
+            scInit();
+        }
+
+        function scInit() {
+            scStep = 0;
+            scCollected = {};
+            document.getElementById('sc-msgs').innerHTML = '';
+            scBotMsg(scT().init);
+            scSetQR(scT().quick, true);
+            document.getElementById('sc-result').style.display = 'none';
+            document.getElementById('sc-input').placeholder = scT().ph0;
+            document.getElementById('sc-input').focus();
+        }
+
+        function scReset() { scInit(); }
+
+        document.getElementById('tab-ai-checker').addEventListener('click', function() {
+            if (scStep === -1) scInit();
+        });
+        if (window.location.search.includes('ai-checker')) scInit();
+
+        function scBotMsg(text) {
+            const el = document.createElement('div');
+            el.style.cssText = 'display:flex; gap:0.5rem; align-items:flex-start; max-width:88%;';
+            const msgId = 'scm-' + Date.now();
+            el.innerHTML = `
+                <div style="background:#3b82f6; border-radius:50%; width:28px; height:28px; display:flex; align-items:center; justify-content:center; font-size:0.8rem; flex-shrink:0; margin-top:2px;">🧠</div>
+                <div style="background:#fff; border:1.5px solid #e2e8f0; border-radius:0 0.75rem 0.75rem 0.75rem; padding:0.65rem 0.9rem; font-size:0.88rem; color:#1e293b; line-height:1.55; white-space:pre-line; position:relative;">
+                    <span id="${msgId}">${text}</span>
+                    <button onclick="scSpeak(document.getElementById('${msgId}').textContent)" title="Listen"
+                            style="position:absolute; bottom:0.3rem; right:0.4rem; background:none; border:none; cursor:pointer; font-size:0.75rem; color:#94a3b8; padding:0; line-height:1;" onmouseover="this.style.color='#3b82f6'" onmouseout="this.style.color='#94a3b8'">🔊</span>
+                </div>`;
+            document.getElementById('sc-msgs').appendChild(el);
+            scScroll();
+            // Auto-speak bot messages
+            scSpeak(text);
+        }
+
+        // ── Text-to-Speech via Flask backend (gTTS — works for Tamil + English) ──
+        let _scAudio = null;  // current playing audio
+
+        function scSpeak(text) {
+            if (!text || !text.trim()) return;
+            const lang = scLang === 'ta' ? 'ta' : 'en';
+            const url  = `/api/tts?text=${encodeURIComponent(text.trim())}&lang=${lang}`;
+            if (_scAudio) { _scAudio.pause(); _scAudio = null; }
+            _scAudio = new Audio(url);
+            _scAudio.play().catch(e => console.warn('TTS play error:', e));
+        }
+
+        // Play English audio, then Tamil audio sequentially
+        function scSpeakBilingual(enText, taText) {
+            if (_scAudio) { _scAudio.pause(); _scAudio = null; }
+            const enUrl = `/api/tts?text=${encodeURIComponent(enText)}&lang=en`;
+            const taUrl = `/api/tts?text=${encodeURIComponent(taText)}&lang=ta`;
+            const enAudio = new Audio(enUrl);
+            const taAudio = new Audio(taUrl);
+            _scAudio = enAudio;
+            enAudio.onended = () => { _scAudio = taAudio; taAudio.play().catch(()=>{}); };
+            enAudio.play().catch(e => console.warn('TTS error:', e));
+        }
+
+        function scUserMsg(text) {
+            const wrap = document.createElement('div');
+            wrap.style.cssText = 'display:flex; justify-content:flex-end;';
+            const el = document.createElement('div');
+            el.style.cssText = 'background:#3b82f6; color:#fff; border-radius:0.75rem 0 0.75rem 0.75rem; padding:0.6rem 0.9rem; font-size:0.88rem; max-width:75%; line-height:1.5;';
+            el.textContent = text;
+            wrap.appendChild(el);
+            document.getElementById('sc-msgs').appendChild(wrap);
+            scScroll();
+        }
+
+        function scTyping() {
+            const el = document.createElement('div');
+            el.id = 'sc-typing';
+            el.style.cssText = 'display:flex; gap:0.5rem; align-items:center;';
+            el.innerHTML = `<div style="background:#3b82f6;border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;font-size:0.8rem;">🧠</div>
+                <div style="background:#fff;border:1.5px solid #e2e8f0;border-radius:0.75rem;padding:0.5rem 0.75rem;font-size:0.82rem;color:#64748b;">Analysing<span id="sc-dots">...</span></div>`;
+            document.getElementById('sc-msgs').appendChild(el);
+            scScroll();
+        }
+
+        function scRemoveTyping() {
+            const t = document.getElementById('sc-typing');
+            if (t) t.remove();
+        }
+
+        function scScroll() {
+            const m = document.getElementById('sc-msgs');
+            m.scrollTop = m.scrollHeight;
+        }
+
+        function scSetQR(options, isSymptom) {
+            const qr = document.getElementById('sc-qr');
+            qr.innerHTML = '';
+            options.forEach(opt => {
+                const b = document.createElement('button');
+                b.textContent = opt;
+                b.style.cssText = 'background:#eff6ff; color:#1d4ed8; border:1.5px solid #bfdbfe; border-radius:2rem; padding:0.3rem 0.75rem; font-size:0.78rem; font-weight:600; cursor:pointer; font-family:"Inter",sans-serif; transition:background 0.15s;';
+                b.onmouseover = () => b.style.background = '#dbeafe';
+                b.onmouseout  = () => b.style.background = '#eff6ff';
+                b.onclick = () => {
+                    // Strip emoji prefix for symptom pills
+                    const val = isSymptom ? opt.replace(/^[\u{1F300}-\u{1FFFF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}️\s]+/u, '').trim() : opt;
+                    if (isSymptom) {
+                        document.getElementById('sc-input').value = val;
+                    } else {
+                        scSend(val);
+                    }
+                };
+                qr.appendChild(b);
+            });
+        }
+
+        async function scSend(override) {
+            const inp = document.getElementById('sc-input');
+            const msg = override || inp.value.trim();
+            if (!msg) return;
+            inp.value = '';
+            document.getElementById('sc-qr').innerHTML = '';
+
+            scUserMsg(msg);
+            scTyping();
+
+            try {
+                const res  = await fetch('/api/symptom_flow', {
+                    method: 'POST',
+                    headers: {'Content-Type':'application/json'},
+                    body: JSON.stringify({ step: scStep, message: msg, collected: scCollected })
+                });
+                const data = await res.json();
+                scRemoveTyping();
+
+                if (data.error) { scBotMsg('⚠️ ' + data.error); return; }
+
+                scStep      = data.step;
+                scCollected = data.collected || scCollected;
+
+                if (data.type === 'question') {
+                    // Map backend English questions → translated text
+                    let displayText = data.text;
+                    let displayOpts = data.options || [];
+                    if (scLang === 'ta') {
+                        if (data.step === 1) { displayText = scT().q1; displayOpts = scT().q1opts; }
+                        else if (data.step === 2) { displayText = scT().q2; displayOpts = scT().q2opts; }
+                        else if (data.step === 3) { displayText = scT().q3; displayOpts = scT().q3opts; }
+                    }
+                    scBotMsg(displayText);
+                    if (displayOpts.length) scSetQR(displayOpts, false);
+                    inp.placeholder = scT().phOpt;
+
+                } else if (data.type === 'result') {
+                    scBotMsg(scT().result(data.condition, data.severity, data.specialty));
+                    scShowResult(data);
+                    inp.placeholder = scT().phDone;
+                    inp.disabled = true;
+                    setTimeout(() => inp.disabled = false, 500);
+                }
+            } catch(e) {
+                scRemoveTyping();
+                scBotMsg('⚠️ Could not connect. Please check your connection and try again.');
+            }
+        }
+
+        function scShowResult(data) {
+            const sevColor = data.severity === 'High' ? '#ef4444' : data.severity === 'Medium' ? '#f59e0b' : '#10b981';
+            const sevPct   = data.severity === 'High' ? '100%' : data.severity === 'Medium' ? '60%' : '30%';
+
+            // Condition card
+            document.getElementById('sc-cond-card').innerHTML = `
+                <div style="display:flex; align-items:center; gap:1rem; flex-wrap:wrap;">
+                    <div style="flex:1; min-width:180px;">
+                        <p style="font-size:0.72rem; color:#64748b; font-weight:700; text-transform:uppercase; margin:0;">Detected Condition</p>
+                        <p style="font-size:1.4rem; font-weight:800; color:#1e293b; margin:0.2rem 0;">${data.condition}</p>
+                        <p style="font-size:0.78rem; color:#64748b; margin:0;">Recommended: <strong>${data.specialty}</strong></p>
+                    </div>
+                    <div style="flex:1; min-width:160px;">
+                        <p style="font-size:0.72rem; color:#64748b; font-weight:700; text-transform:uppercase; margin:0;">Severity</p>
+                        <p style="font-size:1.1rem; font-weight:700; color:${sevColor}; margin:0.2rem 0;">${data.severity}</p>
+                        <div style="height:6px; background:#e2e8f0; border-radius:3px;">
+                            <div style="height:100%; width:${sevPct}; background:${sevColor}; border-radius:3px;"></div>
+                        </div>
+                    </div>
+                    ${data.remedies && data.remedies.length ? `
+                    <div style="flex:2; min-width:200px;">
+                        <p style="font-size:0.72rem; color:#16a34a; font-weight:700; text-transform:uppercase; margin:0;">Home Remedies</p>
+                        <ul style="margin:0.3rem 0 0; padding-left:1rem; font-size:0.8rem; color:#374151; line-height:1.7;">
+                            ${data.remedies.slice(0,3).map(r => `<li>${r}</li>`).join('')}
+                        </ul>
+                    </div>` : ''}
+                </div>`;
+
+            // Doctor cards
+            const grid = document.getElementById('sc-doc-grid');
+            grid.innerHTML = '';
+            if (!data.doctors || !data.doctors.length) {
+                grid.innerHTML = '<p style="color:#64748b;">No matching doctors found. Try the Find a Doctor tab.</p>';
+            } else {
+                data.doctors.forEach(d => {
+                    const card = document.createElement('div');
+                    card.className = 'glass-card doctor-card';
+                    card.style.background = '#fff';
+                    card.innerHTML = `
+                        <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:0.75rem;">
+                            <div class="doctor-avatar" style="background:linear-gradient(135deg,#3b82f6,#1d4ed8); color:#fff; width:42px; height:42px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:1.1rem; font-weight:700;">${d.name[0]}</div>
+                            <div style="background:#dcfce7; color:#16a34a; padding:0.2rem 0.5rem; border-radius:0.5rem; font-size:0.68rem; font-weight:700;">${d.availability}</div>
+                        </div>
+                        <div style="font-weight:700; font-size:0.95rem; color:#1e293b; margin-bottom:0.2rem;">Dr. ${d.name}</div>
+                        <div style="font-size:0.8rem; color:#64748b; margin-bottom:0.2rem;">${d.dept}</div>
+                        ${d.hospital_name ? `<div style="font-size:0.75rem; color:#94a3b8; margin-bottom:0.5rem;">🏥 ${d.hospital_name}</div>` : ''}
+                        <div style="display:flex; align-items:center; gap:0.3rem; margin-bottom:0.9rem; font-size:0.78rem; color:#d97706;">
+                            ⭐ ${d.rating}
+                        </div>
+                        <button onclick="openBookingModal('${d.name.replace(/'/g,"\\'")}','${d.id}','${(d.hospital_name||'').replace(/'/g,"\\'")}'); document.getElementById('sc-result').scrollIntoView({behavior:'smooth'});"
+                                style="width:100%; background:#3b82f6; color:#fff; border:none; padding:0.55rem; border-radius:0.6rem; font-weight:700; font-size:0.85rem; cursor:pointer; font-family:'Inter',sans-serif; transition:background 0.2s;"
+                                onmouseover="this.style.background='#2563eb'" onmouseout="this.style.background='#3b82f6'">
+                            📅 Book Appointment
+                        </button>`;
+                    grid.appendChild(card);
+                });
+                lucide.createIcons();
+            }
+
+            document.getElementById('sc-result').style.display = 'block';
+            document.getElementById('sc-result').scrollIntoView({behavior:'smooth', block:'start'});
+        }
+        /* ── Voice Input ── */
+        let scMicRecog  = null;
+        let scMicActive = false;
+
+        // ── Mic click: show language picker first ────────────────────────────
+        function scToggleMic() {
+            const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (!SpeechRec) {
+                scBotMsg("⚠️ Your browser doesn't support voice input. Please use Chrome or Edge.");
+                return;
+            }
+            if (scMicActive) { scMicRecog && scMicRecog.stop(); return; }
+            scShowLangPicker(SpeechRec);
+        }
+
+        function scShowLangPicker() {
+            const old = document.getElementById('sc-lang-picker');
+            if (old) { old.remove(); return; }
+
+            if (!document.getElementById('sc-picker-style')) {
+                const s = document.createElement('style');
+                s.id = 'sc-picker-style';
+                s.textContent = `
+                    @keyframes lpFadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+                    @keyframes pulse-mic{0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,0.3)}50%{box-shadow:0 0 0 6px rgba(239,68,68,0)}}
+                `;
+                document.head.appendChild(s);
+            }
+
+            const picker = document.createElement('div');
+            picker.id = 'sc-lang-picker';
+            picker.style.cssText = 'position:absolute;bottom:4.2rem;left:1rem;right:1rem;background:#fff;border:2px solid #3b82f6;border-radius:1rem;box-shadow:0 8px 32px rgba(59,130,246,0.22);padding:1.1rem 1.3rem;z-index:9999;animation:lpFadeIn 0.2s ease;';
+            picker.innerHTML = `
+                <p style="margin:0 0 0.8rem;font-size:0.88rem;font-weight:700;color:#1e293b;">
+                    🎤 Select Language &nbsp;/&nbsp; <span style="color:#7c3aed;font-family:serif;">மொழியை தேர்வு செய்யுங்கள்</span>
+                </p>
+                <div style="display:flex;gap:0.65rem;flex-wrap:wrap;">
+                    <button onclick="scPickLang('en')"
+                        style="flex:1;min-width:110px;padding:0.7rem 0.4rem;background:linear-gradient(135deg,#2563eb,#1d4ed8);color:#fff;border:none;border-radius:0.75rem;font-size:0.92rem;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;box-shadow:0 3px 10px rgba(37,99,235,0.3);">
+                        1️⃣ &nbsp;English
+                    </button>
+                    <button onclick="scPickLang('ta')"
+                        style="flex:1;min-width:110px;padding:0.7rem 0.4rem;background:linear-gradient(135deg,#7c3aed,#4f46e5);color:#fff;border:none;border-radius:0.75rem;font-size:0.92rem;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;box-shadow:0 3px 10px rgba(124,58,237,0.3);">
+                        2️⃣ &nbsp;தமிழ்
+                    </button>
+                    <button onclick="document.getElementById('sc-lang-picker').remove()"
+                        style="padding:0.5rem 0.8rem;background:#f1f5f9;border:1.5px solid #e2e8f0;border-radius:0.75rem;font-size:0.82rem;color:#64748b;cursor:pointer;font-family:'Inter',sans-serif;">
+                        ✕
+                    </button>
+                </div>
+                <p style="margin:0.55rem 0 0;font-size:0.7rem;color:#94a3b8;">
+                    Press <b>1</b> for English &nbsp;|&nbsp;
+                    <span style="font-family:serif;">தமிழுக்கு</span> <b>2</b> <span style="font-family:serif;">அழுத்துங்கள்</span>
+                </p>`;
+
+            // Attach to the chat wrapper
+            const chatWrap = document.getElementById('sc-msgs').closest('div[style*="overflow:hidden"]')
+                          || document.getElementById('sc-input').parentElement.parentElement;
+            chatWrap.style.position = 'relative';
+            chatWrap.appendChild(picker);
+
+            // Speak the prompt in ENGLISH first, then TAMIL (chained)
+            scSpeakBilingual(
+                'Select language. Press 1 for English.',
+                'மொழியை தேர்வு செய்யுங்கள். தமிழில் பேச 2 அழுத்துங்கள்.'
+            );
+
+            // Keyboard: 1 = English, 2 = Tamil, Esc = close
+            function onKey(e) {
+                if (e.key === '1') { document.removeEventListener('keydown', onKey); scPickLang('en'); }
+                if (e.key === '2') { document.removeEventListener('keydown', onKey); scPickLang('ta'); }
+                if (e.key === 'Escape') { document.removeEventListener('keydown', onKey); picker.remove(); }
+            }
+            document.addEventListener('keydown', onKey);
+        }
+
+        function scPickLang(lang) {
+            const p = document.getElementById('sc-lang-picker');
+            if (p) p.remove();
+            scLang = lang;
+
+            // Sync header toggle
+            const enBtn = document.getElementById('sc-lang-en');
+            const taBtn = document.getElementById('sc-lang-ta');
+            const activeStyle  = 'background:rgba(255,255,255,0.9);border:2px solid #fff;border-radius:0.5rem;padding:0.25rem 0.7rem;color:#1d4ed8;font-size:0.78rem;font-weight:700;cursor:pointer;font-family:Inter,sans-serif;';
+            const inactiveStyle = 'background:rgba(255,255,255,0.18);border:2px solid rgba(255,255,255,0.4);border-radius:0.5rem;padding:0.25rem 0.7rem;color:#fff;font-size:0.78rem;font-weight:700;cursor:pointer;font-family:Inter,sans-serif;';
+            if (enBtn && taBtn) {
+                enBtn.style.cssText = lang === 'en' ? activeStyle : inactiveStyle;
+                taBtn.style.cssText = lang === 'ta' ? activeStyle : inactiveStyle;
+            }
+
+            // Speak confirmation in selected language then start mic
+            if (typeof responsiveVoice !== 'undefined') responsiveVoice.cancel();
+            const confirmText = lang === 'en'
+                ? 'English selected. Please speak your symptoms now.'
+                : 'தமிழ் தேர்வு செய்யப்பட்டது. இப்போது உங்கள் அறிகுறிகளை சொல்லுங்கள்.';
+            const rvVoice = lang === 'ta' ? 'Tamil Female' : 'UK English Female';
+            let micStarted = false;
+            const go = () => { if (!micStarted) { micStarted = true; scStartListening(); } };
+            if (typeof responsiveVoice !== 'undefined') {
+                responsiveVoice.speak(confirmText, rvVoice, { rate: 0.9, onend: go });
+            }
+            setTimeout(go, 2500); // fallback
+        }
+
+        function scStartListening() {
+            const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (!SpeechRec) return;
+            const btn = document.getElementById('sc-mic-btn');
+            scMicRecog = new SpeechRec();
+            scMicRecog.lang            = scT().micLang;
+            scMicRecog.interimResults  = false;
+            scMicRecog.maxAlternatives = 1;
+            scMicActive = true;
+            btn.textContent = '🔴';
+            btn.style.background  = '#fee2e2';
+            btn.style.borderColor = '#fca5a5';
+            btn.style.animation   = 'pulse-mic 1s infinite';
+
+            scMicRecog.onresult = (e) => {
+                const t = e.results[0][0].transcript;
+                document.getElementById('sc-input').value = t;
+                scBotMsg(scLang === 'ta' ? `🎤 கேட்டது: "${t}"` : `🎤 I heard: "${t}"`);
+                setTimeout(scSend, 400);
+            };
+            scMicRecog.onerror = (e) => {
+                scBotMsg(scLang === 'ta'
+                    ? '⚠️ குரல் பிழை: மீண்டும் முயற்சிக்கவும்.'
+                    : '⚠️ Voice error: ' + (e.error === 'no-speech' ? 'No speech detected.' : e.error));
+            };
+            scMicRecog.onend = () => {
+                scMicActive = false;
+                btn.textContent       = '🎤';
+                btn.style.background  = '#f1f5f9';
+                btn.style.borderColor = '#e2e8f0';
+                btn.style.animation   = '';
+            };
+            scMicRecog.start();
+        }
+
+        /* ────────────────────────────────────────────
+           HOME REMEDIES AI CHAT ENGINE
+        ──────────────────────────────────────────── */
+        let remInitDone = false;
+
+        function remInit() {
+            if (remInitDone) return;
+            remInitDone = true;
+            document.getElementById('rem-msgs').innerHTML = '';
+            remBotMsg("🌿 Hi! I'm your Home Remedies Assistant.\n\nTell me your symptoms and I'll suggest natural home remedies to help you feel better.\n\nIf your condition doesn't improve, I'll also recommend when to see a doctor.");
+        }
+
+        // Auto-init when tab is opened
+        document.getElementById('tab-remedies') && document.getElementById('tab-remedies').addEventListener('click', remInit);
+        // Fallback: also check if it's the active tab
+        if (document.getElementById('content-remedies') && document.getElementById('content-remedies').classList.contains('active')) remInit();
+
+        function remBotMsg(text, isDoctor) {
+            const wrap = document.createElement('div');
+            wrap.style.cssText = 'display:flex; gap:0.5rem; align-items:flex-start; max-width:88%;';
+            const bubble = isDoctor
+                ? `<div style="background:#fff7ed; border:1.5px solid #fed7aa; border-radius:0 0.75rem 0.75rem 0.75rem; padding:0.75rem 0.9rem; font-size:0.87rem; color:#1e293b; line-height:1.6; white-space:pre-line;">${text}</div>`
+                : `<div style="background:#fff; border:1.5px solid #e2e8f0; border-radius:0 0.75rem 0.75rem 0.75rem; padding:0.65rem 0.9rem; font-size:0.87rem; color:#1e293b; line-height:1.6; white-space:pre-line;">${text}</div>`;
+            const icon = isDoctor ? '🏥' : '🌿';
+            const iconBg = isDoctor ? '#f97316' : '#16a34a';
+            wrap.innerHTML = `<div style="background:${iconBg}; border-radius:50%; width:28px; height:28px; display:flex; align-items:center; justify-content:center; font-size:0.8rem; flex-shrink:0; margin-top:2px;">${icon}</div>${bubble}`;
+            document.getElementById('rem-msgs').appendChild(wrap);
+            const m = document.getElementById('rem-msgs');
+            m.scrollTop = m.scrollHeight;
+        }
+
+        function remUserMsg(text) {
+            const wrap = document.createElement('div');
+            wrap.style.cssText = 'display:flex; justify-content:flex-end;';
+            const el = document.createElement('div');
+            el.style.cssText = 'background:#16a34a; color:#fff; border-radius:0.75rem 0 0.75rem 0.75rem; padding:0.6rem 0.9rem; font-size:0.87rem; max-width:75%; line-height:1.5;';
+            el.textContent = text;
+            wrap.appendChild(el);
+            document.getElementById('rem-msgs').appendChild(wrap);
+            const m = document.getElementById('rem-msgs');
+            m.scrollTop = m.scrollHeight;
+        }
+
+        function remTyping() {
+            const el = document.createElement('div');
+            el.id = 'rem-typing';
+            el.style.cssText = 'display:flex; gap:0.5rem; align-items:center;';
+            el.innerHTML = `<div style="background:#16a34a; border-radius:50%; width:26px; height:26px; display:flex; align-items:center; justify-content:center; font-size:0.75rem;">🌿</div><div style="background:#fff; border:1.5px solid #e2e8f0; border-radius:0 0.75rem 0.75rem 0.75rem; padding:0.55rem 0.9rem; font-size:0.85rem; color:#64748b;">Searching remedies…</div>`;
+            document.getElementById('rem-msgs').appendChild(el);
+            document.getElementById('rem-msgs').scrollTop = 999999;
+        }
+
+        async function remSend() {
+            const inp = document.getElementById('rem-input');
+            const msg = inp.value.trim();
+            if (!msg) return;
+            inp.value = '';
+
+            // Init on first send if tab wasn't clicked
+            if (!remInitDone) remInit();
+
+            remUserMsg(msg);
+            remTyping();
+
+            try {
+                const res  = await fetch('/api/remedies_chat', {
+                    method: 'POST',
+                    headers: {'Content-Type':'application/json'},
+                    body: JSON.stringify({ message: msg })
+                });
+                const data = await res.json();
+                const t = document.getElementById('rem-typing');
+                if (t) t.remove();
+
+                if (data.type === 'remedy') {
+                    remBotMsg(data.text);
+                } else if (data.type === 'doctor') {
+                    remBotMsg(data.text, true);
+                    // Show "Find a Doctor" action button
+                    const btn = document.createElement('div');
+                    btn.style.cssText = 'display:flex; justify-content:flex-start; padding-left:36px;';
+                    btn.innerHTML = `<button onclick="switchTab('ai-checker')"
+                        style="background:#f97316; color:#fff; border:none; border-radius:0.6rem; padding:0.55rem 1.1rem; font-size:0.82rem; font-weight:700; cursor:pointer; font-family:'Inter',sans-serif; margin-top:0.3rem; box-shadow:0 3px 10px rgba(249,115,22,0.3);">
+                        🏥 Check Symptoms & Find a Doctor →
+                    </button>`;
+                    document.getElementById('rem-msgs').appendChild(btn);
+                    document.getElementById('rem-msgs').scrollTop = 999999;
+                } else {
+                    remBotMsg(data.text || '⚠️ Sorry, I could not find remedies. Please try again.');
+                }
+            } catch(e) {
+                const t = document.getElementById('rem-typing');
+                if (t) t.remove();
+                remBotMsg('⚠️ Connection error. Please check your internet and try again.');
+            }
+        }
+
+        function remReset() {
+            document.getElementById('rem-msgs').innerHTML = '';
+            remInitDone = false;
+            remInit();
+        }
+    </script>
+</body>
+</html>
