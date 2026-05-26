@@ -1,0 +1,9 @@
+flask
+flask-mysqldb
+gunicorn
+SpeechRecognition
+scikit-learn
+pandas
+numpy
+mysqlclient
+gtts
